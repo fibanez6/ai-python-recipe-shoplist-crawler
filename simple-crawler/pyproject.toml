@@ -1,0 +1,25 @@
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["app"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "B", "C", "S", "Q"]
+extend-ignore = ["E203", "W503"]
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
+exclude = [".venv", "__pycache__", "app/static", ".github"]
+
+[tool.mypy]
+python_version = 3.11
+warn_unused_configs = True
+ignore_missing_imports = True
+follow_imports = "silent"
+show_error_codes = True

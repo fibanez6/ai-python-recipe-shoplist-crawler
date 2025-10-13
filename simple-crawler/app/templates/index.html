@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Recipe Shoplist Crawler</title>
+    <link rel="stylesheet" href="{{ base_url }}/static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Recipe Shoplist Crawler</h1>
+      <div class="form-row">
+        <form id="recipe-form" action="{{ base_url }}/generate" method="post">
+          <label for="url">Recipe URL</label>
+          <input type="text" id="url" name="url" placeholder="https://example.com/recipe" required />
+          <button type="submit">Generate</button>
+        </form>
+        <div class="btn-container">
+          <a href="#" id="use-sample" class="btn btn-sample">Use sample recipe</a>
+        </div>
+      </div>
+      <script>
+        (function(){
+          const samplePath = '{{ base_url }}/static/sample-recipe.html';
+          const useSample = document.getElementById('use-sample');
+          const urlInput = document.getElementById('url');
+          const form = document.getElementById('recipe-form');
+          useSample.addEventListener('click', function(e){
+            e.preventDefault();
+            // populate the URL field with an absolute URL when possible
+            const origin = window.location.origin || '';
+            urlInput.value = origin + samplePath;
+            form.submit();
+          });
+        })();
+      </script>
+      <p>Tip: this is a prototype with mocked grocery searches.</p>
+    </div>
+  </body>
+</html>

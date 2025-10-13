@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Recipe Shoplist Crawler - FastAPI ASGI app
+
+Globals:
+  Function:
+    Timeout: 30
+
+Parameters:
+  Stage:
+    Type: String
+    Default: Prod
+    Description: Deployment stage (used by Lambda environment variable)
+    AllowedValues:
+      - Dev
+      - Staging
+      - Prod
+
+Resources:
+  RecipeApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Cors:
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+  RecipeApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: "Recipe Shoplist Crawler FastAPI app"
+      Handler: app.lambda_handler.handler
+      Runtime: python3.13
+      CodeUri: .
+      MemorySize: 512
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RecipeApi
+            Path: /{proxy+}
+            Method: ANY
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${RecipeApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/"
