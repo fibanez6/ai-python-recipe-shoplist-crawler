@@ -2,8 +2,8 @@
 Centralized logging configuration for the AI Recipe Shoplist Crawler.
 """
 
-import os
 import logging
+import os
 import sys
 from typing import Optional
 

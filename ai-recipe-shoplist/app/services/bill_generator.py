@@ -1,25 +1,30 @@
 """Bill generator service for creating formatted shopping receipts."""
 
+import json
 import os
 import uuid
 from datetime import datetime
-from typing import List, Optional, Union
-from io import BytesIO
-import json
+from typing import Optional
 
 # PDF generation
 try:
-    from reportlab.lib.pagesizes import letter, A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
-from ..models import Bill, Recipe, OptimizationResult, ShoppingListItem
+from ..models import Bill, OptimizationResult, Recipe
 
 
 class BillGenerator:

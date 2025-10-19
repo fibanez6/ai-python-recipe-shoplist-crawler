@@ -4,15 +4,16 @@ Test script for the web fetcher service.
 Demonstrates fetching web content with caching and cleaning.
 """
 
+import asyncio
 import os
 import sys
-import asyncio
 
 # Add the app directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from app.config.logging_config import get_logger, setup_logging
 from app.services.web_fetcher import get_web_fetcher
-from app.utils.logging_config import setup_logging, get_logger
+
 
 async def test_web_fetcher():
     """Test the web fetcher service with a real recipe URL."""

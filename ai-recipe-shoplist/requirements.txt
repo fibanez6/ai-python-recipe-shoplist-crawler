@@ -9,6 +9,9 @@ python-multipart>=0.0.6,<1.0.0
 python-dotenv>=1.0.0,<2.0.0
 aiofiles>=23.2.1,<24.0.0
 
+# Retry and resilience
+tenacity>=8.2.0,<9.0.0
+
 # Image processing and PDF generation - Python 3.11 compatible
 pillow>=10.0.1,<11.0.0
 reportlab>=4.0.4,<5.0.0

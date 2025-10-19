@@ -1,0 +1,118 @@
+{
+  "input": {
+    "recipe_text": "Chicken Stir Fry\n\nIngredients:\n- 2 chicken breasts, sliced\n- 2 cups mixed vegetables (bell peppers, broccoli, carrots)\n- 3 cloves garlic, minced\n- 1 inch ginger, grated\n- 3 tbsp soy sauce\n- 2 tbsp vegetable oil\n- 1 tsp sesame oil\n- 2 cups cooked rice\n\nInstructions:\n1. Heat oil in wok or large pan\n2. Cook chicken until golden\n3. Add garlic and ginger\n4. Add vegetables, stir fry 3-4 minutes\n5. Add soy sauce and sesame oil\n6. Serve over rice",
+    "prompt_type": "recipe_analysis"
+  },
+  "output": {
+    "recipe_name": "Chicken Stir Fry",
+    "servings": 4,
+    "ingredients": [
+      {
+        "name": "chicken breast",
+        "amount": 2,
+        "unit": "pieces",
+        "category": "meat",
+        "preparation": "sliced thin",
+        "notes": "boneless, skinless"
+      },
+      {
+        "name": "bell peppers",
+        "amount": 1,
+        "unit": "cup",
+        "category": "vegetables",
+        "colors": ["red", "yellow", "green"],
+        "preparation": "sliced"
+      },
+      {
+        "name": "broccoli",
+        "amount": 1,
+        "unit": "cup",
+        "category": "vegetables",
+        "preparation": "florets",
+        "notes": "fresh or frozen"
+      },
+      {
+        "name": "carrots",
+        "amount": 0.5,
+        "unit": "cup",
+        "category": "vegetables",
+        "preparation": "sliced",
+        "notes": "julienned or rounds"
+      },
+      {
+        "name": "garlic",
+        "amount": 3,
+        "unit": "cloves",
+        "category": "aromatics",
+        "preparation": "minced",
+        "notes": "fresh preferred"
+      },
+      {
+        "name": "ginger",
+        "amount": 1,
+        "unit": "inch",
+        "category": "aromatics",
+        "preparation": "grated",
+        "notes": "fresh root"
+      },
+      {
+        "name": "soy sauce",
+        "amount": 3,
+        "unit": "tbsp",
+        "category": "condiments",
+        "quality": "low sodium preferred",
+        "notes": "key flavor base"
+      },
+      {
+        "name": "vegetable oil",
+        "amount": 2,
+        "unit": "tbsp",
+        "category": "oils",
+        "alternatives": ["peanut oil", "canola oil"],
+        "notes": "high heat cooking"
+      },
+      {
+        "name": "sesame oil",
+        "amount": 1,
+        "unit": "tsp",
+        "category": "oils",
+        "quality": "toasted sesame oil",
+        "notes": "for finishing flavor"
+      },
+      {
+        "name": "rice",
+        "amount": 2,
+        "unit": "cups",
+        "category": "grains",
+        "state": "cooked",
+        "notes": "jasmine or basmati preferred"
+      }
+    ],
+    "estimated_cost": {
+      "total": 15.75,
+      "per_serving": 3.94,
+      "currency": "USD"
+    },
+    "dietary_info": {
+      "vegetarian": false,
+      "vegan": false,
+      "gluten_free": false,
+      "dairy_free": true,
+      "allergens": ["soy"]
+    },
+    "cooking_info": {
+      "prep_time": "15 minutes",
+      "cook_time": "10 minutes",
+      "total_time": "25 minutes",
+      "difficulty": "easy",
+      "cuisine": "Asian"
+    }
+  },
+  "metadata": {
+    "response_type": "recipe_analysis",
+    "created_date": "2024-10-19",
+    "model_used": "mock",
+    "processing_time": "0.1s",
+    "tokens_used": 0
+  }
+}

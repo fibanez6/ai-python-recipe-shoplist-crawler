@@ -3,8 +3,12 @@ AI utility functions for response processing and data handling.
 """
 
 import json
+import logging
 import re
 from typing import Any, Dict, List, Union
+
+# Get module logger
+logger = logging.getLogger(__name__)
 
 
 def clean_json_response(response: str) -> str:
@@ -66,9 +70,26 @@ def safe_json_parse(response: str, fallback: Any = None) -> Any:
         Parsed JSON object or fallback value
     """
     try:
+        # Check if response looks like an error message
+        if not response or isinstance(response, str) and (
+            response.startswith(("Internal", "Error", "HTTP", "500", "429", "503")) or
+            "error" in response.lower() or
+            "exception" in response.lower() or
+            len(response.strip()) < 2
+        ):
+            logger.warning(f"AI response appears to be an error: {response[:100]}...")
+            return fallback
+            
         cleaned_response = clean_json_response(response)
+        
+        # Double-check that we have something that looks like JSON
+        if not cleaned_response or not cleaned_response.strip().startswith(('{', '[')):
+            logger.warning(f"Response doesn't appear to be JSON: {cleaned_response[:100]}...")
+            return fallback
+            
         return json.loads(cleaned_response)
-    except (json.JSONDecodeError, ValueError, TypeError):
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        logger.warning(f"JSON parsing failed: {e}. Response: {response[:200]}...")
         return fallback
 
 
@@ -225,6 +246,11 @@ def format_ai_prompt(template: str, **kwargs) -> str:
 
 
 # Common prompt templates
+
+RECIPE_EXTRACTION_SYSTEM = """You are a web crawler / price comparison assistant that does the following steps:
+Reads recipes online — extracts the list of ingredients and quantities and return only valid JSON.
+"""
+
 RECIPE_EXTRACTION_PROMPT = """
 Extract recipe information from this HTML content and return as JSON:
 
@@ -244,6 +270,8 @@ HTML content:
 Return only valid JSON, no additional text.
 """
 
+INGREDIENT_NORMALIZATION_SYSTEM = "You are an expert at parsing cooking ingredients. Return only valid JSON."
+
 INGREDIENT_NORMALIZATION_PROMPT = """
 Parse these ingredient texts into structured data. For each ingredient, extract:
 - name: clean ingredient name (e.g., "flour", "chicken breast")
@@ -256,6 +284,8 @@ Ingredients:
 
 Return as JSON array with objects for each ingredient.
 """
+
+PRODUCT_MATCHING_SYSTEM = "You are a grocery shopping expert. Rank products by relevance and quality."
 
 PRODUCT_MATCHING_PROMPT = """
 Rank these grocery products by how well they match the ingredient "{ingredient}".
@@ -282,4 +312,18 @@ Consider:
 - Dietary restrictions (if any)
 
 Return as a JSON array of strings, no additional text.
+"""
+
+RECIPE_SHOPPING_ASSISTANT_SYSTEM =  """
+Simulate real-world shopping assistant. that does the following steps:
+- Reads recipes online — extracts the list of ingredients and quantities
+- Creates a unified shopping list — merging duplicate ingredients and standardizing units.
+- Searches Coles, Woolworths and Aldi (Australia's three main grocery chains) to:
+-- Find each ingredient, with quantity and unit.
+-- Maximize savings by finding the best prices for each ingredient.
+-- Suggest the best store (or a mixed basket for cheapest total).
+"""
+
+RECIPE_SHOPPING_ASSISTANT_PROMPT = """
+Given me a recipe URL "{url}", extract ingredients and find current prices from Coles and Woolworths (using real web data).
 """

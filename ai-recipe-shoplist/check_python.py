@@ -2,8 +2,9 @@
 """
 Python 3.11 compatibility checker for AI Recipe Shoplist Crawler
 """
-import sys
 import platform
+import sys
+
 
 def check_python_version():
     """Check if Python version meets minimum requirements"""

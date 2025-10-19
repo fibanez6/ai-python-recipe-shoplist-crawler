@@ -10,18 +10,16 @@ import sys
 # Add the app directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from app.config.logging_config import get_logger, setup_logging
 from app.utils.ai_helpers import (
+    INGREDIENT_NORMALIZATION_PROMPT,
     clean_json_response,
+    format_ai_prompt,
     safe_json_parse,
-    extract_json_from_text,
-    normalize_ai_response,
     validate_ingredient_data,
     validate_recipe_data,
-    format_ai_prompt,
-    RECIPE_EXTRACTION_PROMPT,
-    INGREDIENT_NORMALIZATION_PROMPT
 )
-from app.utils.logging_config import setup_logging, get_logger
+
 
 def test_json_cleaning():
     """Test JSON response cleaning functions."""

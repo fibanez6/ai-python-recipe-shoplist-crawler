@@ -1,9 +1,9 @@
 """Simple recipe crawler service."""
 
-import asyncio
 import httpx
 from bs4 import BeautifulSoup
-from ..models import Recipe, Ingredient
+
+from ..models import Ingredient, Recipe
 
 
 class SimpleCrawler:

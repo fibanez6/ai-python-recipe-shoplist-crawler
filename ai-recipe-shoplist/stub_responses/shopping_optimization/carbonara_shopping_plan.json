@@ -1,0 +1,117 @@
+{
+  "input": {
+    "ingredients": [
+      {"name": "spaghetti", "amount": 400, "unit": "g"},
+      {"name": "pancetta", "amount": 200, "unit": "g"},
+      {"name": "eggs", "amount": 3, "unit": "large"},
+      {"name": "pecorino romano cheese", "amount": 100, "unit": "g"},
+      {"name": "black pepper", "amount": "to taste", "unit": "amount"},
+      {"name": "salt", "amount": "to taste", "unit": "amount"}
+    ],
+    "user_location": "downtown",
+    "prompt_type": "shopping_optimization"
+  },
+  "output": {
+    "optimized_shopping_plan": {
+      "total_estimated_cost": 12.47,
+      "total_estimated_time": "35 minutes",
+      "stores_to_visit": 2,
+      "shopping_route": [
+        {
+          "store_name": "Whole Foods Market",
+          "store_id": "wf_downtown_01",
+          "address": "123 Main Street, Downtown",
+          "visit_order": 1,
+          "travel_time": "5 minutes",
+          "shopping_time": "15 minutes",
+          "items": [
+            {
+              "name": "pancetta",
+              "amount": 200,
+              "unit": "g",
+              "price": 4.99,
+              "brand": "Boar's Head",
+              "aisle": "Deli Counter",
+              "notes": "Ask for thick sliced"
+            },
+            {
+              "name": "pecorino romano cheese",
+              "amount": 100,
+              "unit": "g",
+              "price": 3.49,
+              "brand": "Locatelli",
+              "aisle": "Cheese Section",
+              "form": "wedge"
+            },
+            {
+              "name": "eggs",
+              "amount": 3,
+              "unit": "large",
+              "price": 2.99,
+              "brand": "Organic Valley",
+              "aisle": "Dairy",
+              "package_size": "dozen",
+              "notes": "Free-range, will have extras"
+            }
+          ],
+          "subtotal": 11.47,
+          "store_benefits": "Highest quality ingredients, fresh deli items"
+        },
+        {
+          "store_name": "Safeway",
+          "store_id": "sf_downtown_02",
+          "address": "456 Oak Avenue, Downtown",
+          "visit_order": 2,
+          "travel_time": "10 minutes",
+          "shopping_time": "5 minutes",
+          "items": [
+            {
+              "name": "spaghetti",
+              "amount": 400,
+              "unit": "g",
+              "price": 1.00,
+              "brand": "Barilla",
+              "aisle": "Pasta",
+              "package_size": "1 lb",
+              "notes": "Standard long pasta"
+            }
+          ],
+          "subtotal": 1.00,
+          "store_benefits": "Best price for basic pantry items"
+        }
+      ],
+      "pantry_items": [
+        {
+          "name": "black pepper",
+          "note": "Assume available in pantry - freshly ground preferred"
+        },
+        {
+          "name": "salt",
+          "note": "Assume available in pantry - for pasta water"
+        }
+      ],
+      "cost_breakdown": {
+        "ingredients": 12.47,
+        "tax": 0.87,
+        "total_with_tax": 13.34,
+        "savings_vs_single_store": 3.21
+      },
+      "alternatives": {
+        "single_store_option": {
+          "store": "Whole Foods Market",
+          "total_cost": 16.55,
+          "time_savings": "20 minutes",
+          "trade_off": "Higher cost but more convenient"
+        }
+      }
+    }
+  },
+  "metadata": {
+    "response_type": "shopping_optimization",
+    "created_date": "2024-10-19",
+    "model_used": "mock",
+    "processing_time": "0.15s",
+    "tokens_used": 0,
+    "optimization_factors": ["price", "quality", "distance", "time"]
+  }
+}

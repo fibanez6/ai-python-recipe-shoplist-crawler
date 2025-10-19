@@ -6,18 +6,18 @@ Run this to test different logging levels and see the output.
 
 import os
 import sys
-import time
 
 # Add the app directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from app.utils.logging_config import (
-    setup_logging, 
-    get_logger, 
-    set_debug_mode, 
-    log_function_call, 
-    log_api_request
+from app.config.logging_config import (
+    get_logger,
+    log_api_request,
+    log_function_call,
+    set_debug_mode,
+    setup_logging,
 )
+
 
 def demo_basic_logging():
     """Demonstrate basic logging functionality."""

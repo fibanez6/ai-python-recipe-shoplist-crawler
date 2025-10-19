@@ -1,11 +1,9 @@
 """Price optimization service using AI for intelligent shopping decisions."""
 
-import asyncio
-from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
-from ..models import (
-    Ingredient, Product, ShoppingListItem, OptimizationResult, StoreSearchResult
-)
+from typing import Dict, List
+
+from ..models import Ingredient, OptimizationResult, ShoppingListItem, StoreSearchResult
 
 
 @dataclass
@@ -109,9 +107,9 @@ class PriceOptimizer:
                     ingredient=ingredient,
                     selected_product=None,  # Will be set during optimization
                     quantity_needed=ingredient.quantity or 1.0,
-                    estimated_cost=None
+                    estimated_cost=None,
+                    store_options=best_products_by_store  # Include store options in constructor
                 )
-                shopping_item.store_options = best_products_by_store  # Add store options
                 shopping_items.append(shopping_item)
         
         return shopping_items
@@ -124,7 +122,7 @@ class PriceOptimizer:
         # Get all available stores
         available_stores = set()
         for item in shopping_items:
-            if hasattr(item, 'store_options'):
+            if item.store_options:
                 available_stores.update(item.store_options.keys())
         
         for store_name in available_stores:
@@ -132,7 +130,7 @@ class PriceOptimizer:
             optimized_items = []
             
             for item in shopping_items:
-                if hasattr(item, 'store_options') and store_name in item.store_options:
+                if item.store_options and store_name in item.store_options:
                     product = item.store_options[store_name]
                     cost = product.price * item.quantity_needed
                     
@@ -174,7 +172,7 @@ class PriceOptimizer:
         total_cost = 0.0
         
         for item in shopping_items:
-            if not hasattr(item, 'store_options') or not item.store_options:
+            if not item.store_options:
                 # No products available for this ingredient
                 optimized_item = ShoppingListItem(
                     ingredient=item.ingredient,
@@ -237,7 +235,7 @@ class PriceOptimizer:
         # Create a prompt for AI to optimize the shopping
         optimization_data = []
         for item in shopping_items:
-            if hasattr(item, 'store_options'):
+            if item.store_options:
                 item_data = {
                     "ingredient": item.ingredient.name,
                     "quantity": item.quantity_needed,
@@ -298,7 +296,7 @@ class PriceOptimizer:
                     selection = ai_selections[ingredient_name]
                     selected_store = selection["store"]
                     
-                    if (hasattr(item, 'store_options') and 
+                    if (item.store_options and 
                         selected_store in item.store_options):
                         
                         product = item.store_options[selected_store]

@@ -1,8 +1,9 @@
 """Data models for the recipe shoplist application."""
 
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class QuantityUnit(str, Enum):
@@ -26,6 +27,16 @@ class QuantityUnit(str, Enum):
     ITEM = "item"
     CLOVE = "clove"
     SLICE = "slice"
+    
+    # Containers
+    CAN = "can"
+    JAR = "jar"
+    BOTTLE = "bottle"
+    PACKAGE = "package"
+    PACK = "pack"
+    BAG = "bag"
+    BOX = "box"
+    CONTAINER = "container"
     
     # Special
     PINCH = "pinch"
@@ -82,6 +93,7 @@ class ShoppingListItem(BaseModel):
     selected_product: Optional[Product] = Field(None, description="Selected product")
     quantity_needed: float = Field(..., description="Quantity needed for recipe")
     estimated_cost: Optional[float] = Field(None, description="Estimated cost")
+    store_options: Optional[Dict[str, Product]] = Field(None, description="Available products from different stores")
 
 
 class OptimizationResult(BaseModel):

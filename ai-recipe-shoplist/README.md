@@ -80,7 +80,7 @@ ai-recipe-shoplist/
 
 5. **Run the application:**
    ```bash
-   uvicorn app.main:app --reload --port 8000
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 6. **Open your browser:**
@@ -320,6 +320,18 @@ MIT License - see LICENSE file for details.
 - Verify API keys are correct
 - Check internet connection for cloud providers
 - For Ollama, ensure service is running: `ollama serve`
+
+**Rate Limiting (429 Too Many Requests)**
+- GitHub Models has strict rate limits - the app includes automatic retry logic
+- Configure rate limiting settings in your `.env` file:
+  ```bash
+  GITHUB_RPM_LIMIT=15        # Requests per minute (default: 15)
+  GITHUB_MAX_RETRIES=3       # Number of retries (default: 3)
+  GITHUB_BASE_DELAY=1.0      # Base delay in seconds (default: 1.0)
+  GITHUB_MAX_DELAY=60.0      # Maximum delay in seconds (default: 60.0)
+  ```
+- Consider switching to OpenAI or Azure for higher rate limits
+- For production, implement request queuing to stay within limits
 
 **No Products Found**
 - Currently using mock data - this is expected

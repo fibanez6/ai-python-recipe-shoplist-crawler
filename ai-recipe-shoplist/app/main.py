@@ -1,24 +1,24 @@
 """Main FastAPI application for the AI Recipe Shoplist Crawler."""
 
+import json
 import logging
 import os
-import asyncio
 from datetime import datetime
-from typing import Optional, List
-from fastapi import FastAPI, HTTPException, Form, Request, File, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+
 import uvicorn
 from dotenv import load_dotenv
+from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 
 # Load environment variables
 load_dotenv()
 
 # Setup logging first
-from .utils.logging_config import setup_logging, get_logger
+from .config.logging_config import setup_logging
 
 # Initialize logging with file support if needed
 logger = setup_logging(
@@ -26,17 +26,13 @@ logger = setup_logging(
     log_file=os.getenv("LOG_FILE_PATH", "logs/app.log")
 )
 
-from .models import (
-    Recipe, Ingredient, Product, OptimizationResult, Bill,
-    ProcessRecipeRequest, SearchStoresRequest, GenerateBillRequest, APIResponse
-)
+from .models import APIResponse, Ingredient, Recipe, SearchStoresRequest, QuantityUnit
 
 # Import services
 from .services.ai_service import get_ai_service
-from .services.recipe_crawler import recipe_crawler
-from .services.store_crawler import store_crawler
-from .services.price_optimizer import price_optimizer
 from .services.bill_generator import bill_generator
+from .services.price_optimizer import price_optimizer
+from .services.store_crawler import store_crawler
 from .services.web_fetcher import get_web_fetcher
 
 # Initialize FastAPI app
@@ -162,10 +158,65 @@ async def process_recipe(url: str = Form(...)):
             timestamp=datetime.now().isoformat()
         )
         
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error in process_recipe: {e}")
+        raise HTTPException(
+            status_code=422, 
+            detail="AI response was not valid JSON. This may indicate an AI service error. Please try again."
+        )
     except Exception as e:
-        print(f"[API] Error processing recipe: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error processing recipe: {e}")
+        # Provide more user-friendly error messages
+        if "rate limit" in str(e).lower():
+            detail = "AI service rate limit exceeded. Please try again in a few moments."
+        elif "timeout" in str(e).lower():
+            detail = "AI service timeout. Please try again with a shorter recipe or check your connection."
+        elif "authentication" in str(e).lower() or "api key" in str(e).lower():
+            detail = "AI service authentication error. Please check your configuration."
+        else:
+            detail = f"An error occurred while processing the recipe: {str(e)}"
+        
+        raise HTTPException(status_code=500, detail=detail)
 
+@app.post("/api/process-recipe-ai")
+async def process_recipe_full_ai(recipe_url: str = Form(...)):
+    """Process a recipe URL and extract ingredients."""
+    try:
+        logger.info(f"Processing recipe AI URL: {recipe_url}")
+
+        # Use AI service for intelligent extraction
+        ai_service = get_ai_service()
+        
+        # Extract recipe using AI
+        recipe = await ai_service.shopping_assistant(recipe_url)
+
+        return APIResponse(
+            success=True,
+            data={
+                "url": recipe_url,
+                "recipe": recipe,
+            },
+            timestamp=datetime.now().isoformat()
+        )
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error in process_recipe: {e}")
+        raise HTTPException(
+            status_code=422, 
+            detail="AI response was not valid JSON. This may indicate an AI service error. Please try again."
+        )
+    except Exception as e:
+        logger.error(f"Error processing recipe: {e}")
+        # Provide more user-friendly error messages
+        if "rate limit" in str(e).lower():
+            detail = "AI service rate limit exceeded. Please try again in a few moments."
+        elif "timeout" in str(e).lower():
+            detail = "AI service timeout. Please try again with a shorter recipe or check your connection."
+        elif "authentication" in str(e).lower() or "api key" in str(e).lower():
+            detail = "AI service authentication error. Please check your configuration."
+        else:
+            detail = f"An error occurred while processing the recipe: {str(e)}"
+        
+        raise HTTPException(status_code=500, detail=detail)
 
 @app.post("/api/search-stores")
 async def search_stores(request: SearchStoresRequest):
@@ -244,7 +295,7 @@ async def optimize_shopping(recipe_url: str = Form(...)):
             
             # Use cleaned content for AI processing
             html_content = fetch_result.get("cleaned_content", fetch_result["content"])
-            
+
             recipe = await ai_service.extract_recipe_intelligently(html_content, recipe_url)
             recipe_cache[recipe_url] = recipe
         
@@ -367,13 +418,27 @@ async def suggest_alternatives(ingredient_name: str):
         print(f"[API] Error suggesting alternatives: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/fetcher")
+async def get_fetcher_content(recipe_url: str = Form(...)):
+    """Get web fetcher content."""
+
+    web_fetcher = get_web_fetcher()
+    fetch_result = await web_fetcher.fetch_recipe_content(recipe_url, clean_html=True)
+
+    return APIResponse(
+        success=True,
+        data={
+            "fetch_result": {k: v for k, v in fetch_result.items() if k != "content"}
+        },
+        timestamp=datetime.now().isoformat()
+    )
 
 @app.get("/api/fetcher-stats")
 async def get_fetcher_stats():
     """Get web fetcher cache statistics."""
     web_fetcher = get_web_fetcher()
     stats = web_fetcher.get_cache_stats()
-    
+
     return APIResponse(
         success=True,
         data={
@@ -381,12 +446,11 @@ async def get_fetcher_stats():
             "settings": {
                 "timeout": web_fetcher.timeout,
                 "max_content_size": web_fetcher.max_content_size,
-                "cache_ttl": web_fetcher.cache_ttl
+                "cache_ttl": web_fetcher.fetch_recipe_content
             }
         },
         timestamp=datetime.now().isoformat()
     )
-
 
 @app.post("/api/clear-fetcher-cache")
 async def clear_fetcher_cache():
@@ -403,14 +467,38 @@ async def clear_fetcher_cache():
 
 @app.get("/api/stores")
 async def get_available_stores():
-    """Get list of available grocery stores."""
+    """Get list of available grocery stores with detailed information."""
     stores = store_crawler.get_available_stores()
+    store_info = store_crawler.get_all_stores_info()
     
     return APIResponse(
         success=True,
         data={
             "stores": stores,
-            "count": len(stores)
+            "store_details": store_info,
+            "count": len(stores),
+            "region": store_crawler.region.value
+        },
+        timestamp=datetime.now().isoformat()
+    )
+
+
+@app.get("/api/stores/{store_id}")
+async def get_store_details(store_id: str):
+    """Get detailed information for a specific store."""
+    store_info = store_crawler.get_store_info(store_id)
+    
+    if not store_info:
+        raise HTTPException(status_code=404, detail=f"Store '{store_id}' not found")
+    
+    return APIResponse(
+        success=True,
+        data={
+            "store": store_info,
+            "sample_urls": {
+                "search_tomato": store_crawler.get_store_config(store_id).get_search_url("tomato"),
+                "product_example": store_crawler.get_store_config(store_id).get_product_url("example-product-123")
+            }
         },
         timestamp=datetime.now().isoformat()
     )
@@ -430,11 +518,11 @@ async def demo_recipe():
         prep_time="15 minutes",
         cook_time="25 minutes",
         ingredients=[
-            Ingredient(name="chicken breast", quantity=2, unit="piece", original_text="2 chicken breasts"),
-            Ingredient(name="broccoli", quantity=2, unit="cup", original_text="2 cups broccoli florets"),
-            Ingredient(name="cheddar cheese", quantity=1, unit="cup", original_text="1 cup shredded cheddar cheese"),
-            Ingredient(name="rice", quantity=1, unit="cup", original_text="1 cup cooked rice"),
-            Ingredient(name="cream of mushroom soup", quantity=1, unit="can", original_text="1 can cream of mushroom soup")
+            Ingredient(name="chicken breast", quantity=2, unit=QuantityUnit.PIECE, original_text="2 chicken breasts"),
+            Ingredient(name="broccoli", quantity=2, unit=QuantityUnit.CUP, original_text="2 cups broccoli florets"),
+            Ingredient(name="cheddar cheese", quantity=1, unit=QuantityUnit.CUP, original_text="1 cup shredded cheddar cheese"),
+            Ingredient(name="rice", quantity=1, unit=QuantityUnit.CUP, original_text="1 cup cooked rice"),
+            Ingredient(name="cream of mushroom soup", quantity=1, unit=QuantityUnit.CAN, original_text="1 can cream of mushroom soup")
         ],
         instructions=[
             "Preheat oven to 350°F",

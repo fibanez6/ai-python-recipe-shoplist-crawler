@@ -20,9 +20,10 @@ def parse(html: str, url: str) -> Dict:
 
     # fallback: any <li> that looks like ingredient (contains a number or unit)
     if not ingredients:
+        units = ["cup", "tbsp", "tsp", "g", "kg", "oz", "ml", "can", "jar", "bottle", "package", "pack", "bag", "box", "container"]
         for li in soup.find_all("li"):
             txt = li.get_text(strip=True)
-            if any(u in txt.lower() for u in ["cup", "tbsp", "tsp", "g", "kg", "oz", "ml"]) or any(ch.isdigit() for ch in txt):
+            if any(u in txt.lower() for u in units) or any(ch.isdigit() for ch in txt):
                 ingredients.append(txt)
                 if len(ingredients) > 60:
                     break

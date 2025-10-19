@@ -1,13 +1,13 @@
 """Web content fetcher service for downloading recipe pages and other web content."""
 
-import logging
 import os
 import time
-from typing import Optional, Dict, Any
+from typing import Any, Dict
+
 import httpx
 from bs4 import BeautifulSoup
 
-from ..utils.logging_config import get_logger, log_api_request, log_function_call
+from ..config.logging_config import get_logger, log_api_request, log_function_call
 
 logger = get_logger(__name__)
 
@@ -49,7 +49,7 @@ class WebFetcher:
         if use_cache and url in self._cache:
             cache_entry = self._cache[url]
             if time.time() - cache_entry["timestamp"] < self.cache_ttl:
-                logger.debug(f"[WebFetcher] Serving cached content for {url}")
+                logger.info(f"[WebFetcher] Serving cached content for {url}")
                 cache_entry["from_cache"] = True
                 return cache_entry
             else:
@@ -66,7 +66,7 @@ class WebFetcher:
                 headers={"User-Agent": self.user_agent}
             ) as client:
 
-                logger.debug(f"[WebFetcher] Fetching URL: {url}")
+                logger.info(f"[WebFetcher] Fetching URL: {url}")
                 response = await client.get(url)
                 response.raise_for_status()
                 
@@ -133,12 +133,9 @@ class WebFetcher:
             result["cleaned_content"] = self._clean_html_for_ai(result["content"])
             logger.debug(f"[WebFetcher] Cleaned HTML content: {len(result['content'])} -> {len(result['cleaned_content'])} chars")
 
-        if logger.isEnabledFor(logging.INFO):
-            logger.info(f"[WebFetcher] Fetched recipe content: {result}")
-
         return result
     
-    def _clean_html_for_ai(self, html_content: str, max_length: int = 8000) -> str:
+    def _clean_html_for_ai(self, html_content: str, max_length: int = 100000) -> str:
         """
         Clean HTML content for AI processing by removing unnecessary elements.
         
@@ -153,7 +150,7 @@ class WebFetcher:
             soup = BeautifulSoup(html_content, 'html.parser')
             
             # Remove script and style elements
-            for element in soup(["script", "style", "nav", "header", "footer", "aside"]):
+            for element in soup(["script", "style", "nav", "header", "footer", "aside", "svg", "link", "meta"]):
                 element.decompose()
             
             # Remove comments
@@ -168,6 +165,17 @@ class WebFetcher:
             
             # Get cleaned text
             cleaned = str(soup)
+            
+            # Remove empty lines and excessive whitespace
+            lines = cleaned.split('\n')
+            non_empty_lines = []
+            for line in lines:
+                stripped_line = line.strip()
+                if stripped_line:  # Only keep non-empty lines
+                    non_empty_lines.append(stripped_line)
+            
+            # Join lines back with single newlines
+            cleaned = '\n'.join(non_empty_lines)
             
             # Truncate if too long
             if len(cleaned) > max_length:
