@@ -2,19 +2,14 @@
 
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from ..config.logging_config import get_logger, log_function_call
-from ..utils.retry_utils import (
-    HTTPRetryClient,
-    create_ai_retry_config,
-)
+from ..utils.retry_utils import HTTPRetryClient, create_ai_retry_config
 from .base_provider import BaseAIProvider
-from .openai_provider import OpenAIProvider
 
 # Get module logger
 logger = get_logger(__name__)
-
 
 class GitHubProvider(BaseAIProvider):
     """GitHub Models provider with tenacity-based retry logic."""
@@ -27,6 +22,7 @@ class GitHubProvider(BaseAIProvider):
             raise ValueError("GITHUB_TOKEN environment variable not set")
         
         self.token = token
+        self.name = "GitHubProvider"
         self.model = os.getenv("GITHUB_MODEL", "gpt-4o-mini")
         self.api_url = os.getenv("GITHUB_API_URL", "https://models.inference.ai.azure.com")
         self.timeout = int(os.getenv("GITHUB_MODEL_TIMEOUT", "30"))
@@ -85,14 +81,15 @@ class GitHubProvider(BaseAIProvider):
             logger.error(f"GitHub API error: {e}")
             raise
     
-    async def extract_recipe_data(self, html_content: str, url: str) -> Dict[str, Any]:
-        """Extract structured recipe data from HTML using GitHub Models."""
-        return await OpenAIProvider.extract_recipe_data(self, html_content, url)
+    # async def extract_recipe_data(self, html_content: str, url: str) -> Dict[str, Any]:
+    #     """Extract structured recipe data from HTML using GitHub Models."""
+    #     logger.info(f"[GitHubProvider] Extracting recipe data from URL: {url}")
+    #     return await super().extract_recipe_data(html_content, url)
+
+    # async def normalize_ingredients(self, ingredients: List[str]) -> List[Dict[str, Any]]:
+    #     """Normalize ingredient texts into structured data."""
+    #     return await super().normalize_ingredients(ingredients)
     
-    async def normalize_ingredients(self, ingredients: List[str]) -> List[Dict[str, Any]]:
-        """Normalize ingredient texts into structured data."""
-        return await OpenAIProvider.normalize_ingredients(self, ingredients)
-    
-    async def match_products(self, ingredient: str, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Match and rank products for an ingredient using AI."""
-        return await OpenAIProvider.match_products(self, ingredient, products)
+    # async def match_products(self, ingredient: str, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    #     """Match and rank products for an ingredient using AI."""
+    #     return await super().match_products(ingredient, products)

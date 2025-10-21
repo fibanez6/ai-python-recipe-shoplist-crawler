@@ -1,7 +1,7 @@
 """Azure OpenAI provider implementation."""
 
 import os
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from ..config.logging_config import get_logger
 from ..utils.retry_utils import (
@@ -12,7 +12,6 @@ from ..utils.retry_utils import (
     with_ai_retry,
 )
 from .base_provider import BaseAIProvider
-from .openai_provider import OpenAIProvider
 
 # Get module logger
 logger = get_logger(__name__)
@@ -30,7 +29,7 @@ class AzureProvider(BaseAIProvider):
     def __init__(self):
         if not openai:
             raise ImportError("OpenAI library not installed. Run: pip install openai")
-        
+
         api_key = os.getenv("AZURE_OPENAI_API_KEY")
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
@@ -38,6 +37,7 @@ class AzureProvider(BaseAIProvider):
         if not api_key or not endpoint:
             raise ValueError("AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT environment variables must be set")
         
+        self.name = "AzureProvider"
         self.client = openai.AsyncAzureOpenAI(
             api_key=api_key,
             azure_endpoint=endpoint,
@@ -82,15 +82,15 @@ class AzureProvider(BaseAIProvider):
             logger.error(f"Azure OpenAI API error: {e}")
             raise
     
-    async def extract_recipe_data(self, html_content: str, url: str) -> Dict[str, Any]:
-        """Extract structured recipe data from HTML using Azure OpenAI."""
-        # Similar implementation to OpenAI but using Azure client
-        return await OpenAIProvider.extract_recipe_data(self, html_content, url)
+    # async def extract_recipe_data(self, html_content: str, url: str) -> Dict[str, Any]:
+    #     """Extract structured recipe data from HTML using Azure OpenAI."""
+    #     # Similar implementation to OpenAI but using Azure client
+    #     return await OpenAIProvider.extract_recipe_data(self, html_content, url)
     
-    async def normalize_ingredients(self, ingredients: List[str]) -> List[Dict[str, Any]]:
-        """Normalize ingredient texts into structured data."""
-        return await OpenAIProvider.normalize_ingredients(self, ingredients)
+    # async def normalize_ingredients(self, ingredients: List[str]) -> List[Dict[str, Any]]:
+    #     """Normalize ingredient texts into structured data."""
+    #     return await OpenAIProvider.normalize_ingredients(self, ingredients)
     
-    async def match_products(self, ingredient: str, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Match and rank products for an ingredient using AI."""
-        return await OpenAIProvider.match_products(self, ingredient, products)
+    # async def match_products(self, ingredient: str, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    #     """Match and rank products for an ingredient using AI."""
+    #     return await OpenAIProvider.match_products(self, ingredient, products)
