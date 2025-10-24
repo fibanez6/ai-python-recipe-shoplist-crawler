@@ -19,11 +19,18 @@ load_dotenv()
 
 # Setup logging first
 from .config.logging_config import setup_logging
+from .config.pydantic_config import (
+    LOG_TO_FILE,
+    LOG_FILE_PATH,
+    AI_PROVIDER,
+    SERVER_HOST,
+    SERVER_PORT
+)
 
 # Initialize logging with file support if needed
 logger = setup_logging(
-    enable_file_logging=os.getenv("LOG_FILE_ENABLED", "false").lower() == "true",
-    log_file=os.getenv("LOG_FILE_PATH", "logs/app.log")
+    enable_file_logging=LOG_TO_FILE,
+    log_file=LOG_FILE_PATH
 )
 
 from .models import APIResponse, Ingredient, Recipe, SearchStoresRequest, QuantityUnit
@@ -118,7 +125,7 @@ async def health_check():
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "version": "0.1.0",
-        "ai_provider": os.getenv("AI_PROVIDER", "not configured")
+        "ai_provider": AI_PROVIDER
     }
 
 
@@ -446,7 +453,8 @@ async def get_fetcher_stats():
             "settings": {
                 "timeout": web_fetcher.timeout,
                 "max_content_size": web_fetcher.max_content_size,
-                "cache_ttl": web_fetcher.fetch_recipe_content
+                "cache_ttl": web_fetcher.cache_ttl,
+                "tmp_folder": str(web_fetcher.tmp_folder)
             }
         },
         timestamp=datetime.now().isoformat()
@@ -461,6 +469,18 @@ async def clear_fetcher_cache():
     return APIResponse(
         success=True,
         data={"message": "Fetcher cache cleared successfully"},
+        timestamp=datetime.now().isoformat()
+    )
+
+@app.post("/api/clear-content-files")
+async def clear_content_files():
+    """Clear saved content files."""
+    web_fetcher = get_web_fetcher()
+    web_fetcher.clear_cache(clear_file_cache=False, clear_content_files=True)
+    
+    return APIResponse(
+        success=True,
+        data={"message": "Content files cleared successfully"},
         timestamp=datetime.now().isoformat()
     )
 
@@ -547,8 +567,8 @@ async def demo_recipe():
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    host = os.getenv("HOST", "0.0.0.0")
+    port = SERVER_PORT
+    host = SERVER_HOST
     
     print(f"Starting server on {host}:{port}")
     uvicorn.run(

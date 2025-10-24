@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 from bs4 import BeautifulSoup
 
+from ..config.pydantic_config import FETCHER_AI_MAX_LENGTH
 from ..config.logging_config import get_logger
 from ..utils.ai_helpers import (
     INGREDIENT_NORMALIZATION_PROMPT,
@@ -37,13 +38,16 @@ class BaseAIProvider(ABC):
 
         logger.info(f"[{self.name}] Extracting recipe data from URL: {url}")
 
+        # Get max length from environment variable
+        max_ai_length = FETCHER_AI_MAX_LENGTH
+        
         # Truncate HTML if too long
-        if len(html_content) > 8000:
+        if len(html_content) > max_ai_length:
             soup = BeautifulSoup(html_content, 'html.parser')
             # Remove script and style elements
             for script in soup(["script", "style"]):
                 script.decompose()
-            html_content = str(soup)[:8000]
+            html_content = str(soup)[:max_ai_length]
 
         # Set system message
         system = RECIPE_EXTRACTION_SYSTEM

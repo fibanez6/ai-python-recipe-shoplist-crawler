@@ -62,7 +62,13 @@ def setup_logging(
     
     # File handler (optional)
     if enable_file_logging:
-        file_handler = logging.FileHandler(log_file)
+        # Ensure log directory exists
+        log_dir = os.path.dirname(log_file)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+        
+        # Create file handler with append mode
+        file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
         file_handler.setFormatter(formatter)
         file_handler.setLevel(numeric_level)
         root_logger.addHandler(file_handler)

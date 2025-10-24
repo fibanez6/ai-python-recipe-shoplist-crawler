@@ -5,11 +5,14 @@ An intelligent Python 3.11+ application that crawls recipe websites, extracts in
 ## 🚀 Features
 
 - 🤖 **AI-Powered Recipe Extraction**: Uses OpenAI, Azure OpenAI, Ollama, or GitHub Models to intelligently parse recipe websites
-- 🛒 **Multi-Store Price Comparison**: Searches Coles, Woolworths, ALDI, and IGA for best prices
+- 🛒 **Multi-Store Price Comparison**: Searches Coles, Woolworths, ALDI, and IGA for best prices (mock implementation)
 - 🧠 **Smart Optimization**: AI-enhanced price optimization across multiple stores
 - 🧾 **Bill Generation**: Creates formatted receipts in PDF, HTML, and JSON formats
 - 🌐 **Modern Web Interface**: FastAPI-based web application with responsive design
 - 📱 **Mobile-Friendly**: Works seamlessly on desktop and mobile devices
+- ⚙️ **Type-Safe Configuration**: Pydantic-based configuration with validation and type checking
+- 🔄 **Robust Error Handling**: Automatic retry logic with exponential backoff
+- 📊 **Comprehensive Logging**: Structured logging with configurable levels and file output
 
 ## 🏗️ Architecture
 
@@ -19,22 +22,26 @@ ai-recipe-shoplist/
 │   ├── __init__.py
 │   ├── main.py                     # FastAPI application
 │   ├── models.py                   # Pydantic data models
+│   ├── config/
+│   │   ├── pydantic_config.py      # Type-safe configuration management
+│   │   └── logging_config.py       # Logging configuration
 │   ├── services/
 │   │   ├── ai_service.py           # AI provider management
-│   │   ├── recipe_crawler.py       # Recipe website scraping
-│   │   ├── store_crawler.py        # Grocery store adapters
-│   │   ├── price_optimizer.py      # Cost optimization logic
-│   │   └── bill_generator.py       # Receipt generation
+│   │   ├── web_fetcher.py          # Web content fetching
+│   │   ├── recipe_service.py       # Recipe processing
+│   │   └── shopper_service.py      # Shopping optimization
+│   ├── ia_provider/
+│   │   ├── base_provider.py        # Base AI provider class
+│   │   ├── openai_provider.py      # OpenAI implementation
+│   │   ├── azure_provider.py       # Azure OpenAI implementation
+│   │   ├── ollama_provider.py      # Ollama implementation
+│   │   └── github_provider.py      # GitHub Models implementation
 │   ├── templates/
 │   │   └── index.html             # Web interface
 │   └── static/
 │       ├── style.css              # Styling
-│       └── app.js                 # Frontend JavaScript
-├── .env.openai                   # OpenAI configuration
-├── .env.azure                    # Azure OpenAI configuration
-├── .env.ollama                   # Ollama configuration
-├── .env.github                   # GitHub Models configuration
-├── .env.example                  # Environment template
+│       └── img/                   # Images
+├── .env                          # Environment configuration
 ├── requirements.txt              # Dependencies
 ├── pyproject.toml               # Python 3.11+ project config
 └── README.md                    # This file
@@ -66,14 +73,11 @@ ai-recipe-shoplist/
    pip install -r requirements.txt
    ```
 
-4. **Configure AI provider** (choose one):
+4. **Configure AI provider:**
    ```bash
-   # Copy the appropriate environment file
-   cp .env.openai .env     # For OpenAI
-   cp .env.azure .env      # For Azure OpenAI  
-   cp .env.ollama .env     # For Ollama
-   cp .env.github .env     # For GitHub Models
-   
+   # Create environment file
+   cp .env.example .env     # If available, or create new .env file
+
    # Edit .env with your credentials
    nano .env
    ```
@@ -84,16 +88,16 @@ ai-recipe-shoplist/
    ```
 
 6. **Open your browser:**
-   ```
-   http://localhost:8000
-   ```
+   - **Web Interface:** http://localhost:8000
+   - **API Documentation:** http://localhost:8000/api/docs
+   - **API Re-Documentation:** http://localhost:8000/api/redoc
 
 ## 🤖 AI Provider Setup
 
 ### OpenAI
 
 1. Get API key from [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Copy `.env.openai` to `.env`
+2. Create or edit your `.env` file
 3. Set your API key:
    ```env
    OPENAI_API_KEY=sk-your-openai-api-key-here
@@ -104,7 +108,7 @@ ai-recipe-shoplist/
 
 1. Create Azure OpenAI resource in [Azure Portal](https://portal.azure.com/)
 2. Deploy a model (e.g., gpt-4o-mini)
-3. Copy `.env.azure` to `.env`
+3. Create or edit your `.env` file
 4. Configure:
    ```env
    AZURE_OPENAI_API_KEY=your-azure-key
@@ -123,14 +127,14 @@ ai-recipe-shoplist/
 2. Start Ollama and pull a model:
    ```bash
    ollama serve
-   ollama pull llama3.2:3b
+   ollama pull llama3.1
    ```
 
-3. Copy `.env.ollama` to `.env`
+3. Create or edit your `.env` file
 4. Configure:
    ```env
-   OLLAMA_BASE_URL=http://localhost:11434
-   OLLAMA_MODEL=llama3.2:3b
+   OLLAMA_HOST=http://localhost:11434
+   OLLAMA_MODEL=llama3.1
    AI_PROVIDER=ollama
    ```
 
@@ -138,7 +142,7 @@ ai-recipe-shoplist/
 
 1. Request access at [GitHub Models](https://github.com/marketplace/models)
 2. Create Personal Access Token with `repo` scope
-3. Copy `.env.github` to `.env`
+3. Create or edit your `.env` file
 4. Configure:
    ```env
    GITHUB_TOKEN=ghp_your-token-here
@@ -183,30 +187,108 @@ Or click "Try Demo" in the web interface.
 
 ## 🔧 Configuration
 
+The application uses **Pydantic Settings** for type-safe configuration management with automatic environment variable loading and validation.
+
 ### Environment Variables
 
-Create a `.env` file based on `.env.example`:
+Create a `.env` file in the project root with your configuration:
 
 ```env
-# AI Provider (openai, azure, ollama, github)
-AI_PROVIDER=openai
+# =================================================================
+# AI PROVIDER CONFIGURATION
+# =================================================================
+AI_PROVIDER=openai                    # AI provider (openai, azure, ollama, github)
 
-# Application Settings
-DEBUG=true
-LOG_LEVEL=info
-PORT=8000
+# =================================================================
+# OPENAI CONFIGURATION
+# =================================================================
+OPENAI_API_KEY=sk-your-openai-key
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_MAX_TOKENS=2000
+OPENAI_TEMPERATURE=0.1
+OPENAI_TIMEOUT=30
 
-# AI Configuration (set based on chosen provider)
-OPENAI_API_KEY=your-key
-# or
-AZURE_OPENAI_API_KEY=your-key
-AZURE_OPENAI_ENDPOINT=your-endpoint
-# or  
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2:3b
-# or
-GITHUB_TOKEN=your-token
+# =================================================================
+# AZURE OPENAI CONFIGURATION  
+# =================================================================
+AZURE_OPENAI_API_KEY=your-azure-key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment
+
+# =================================================================
+# OLLAMA CONFIGURATION
+# =================================================================
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=llama3.1
+OLLAMA_TIMEOUT=30
+
+# =================================================================
+# GITHUB MODELS CONFIGURATION
+# =================================================================
+GITHUB_TOKEN=ghp_your-github-token
 GITHUB_MODEL=gpt-4o-mini
+GITHUB_API_URL=https://models.inference.ai.azure.com
+
+# =================================================================
+# WEB FETCHER CONFIGURATION
+# =================================================================
+FETCHER_TIMEOUT=30                    # Request timeout in seconds
+FETCHER_MAX_SIZE=10485760            # Max content size (10MB)
+FETCHER_USER_AGENT=Mozilla/5.0 (compatible; AI-Recipe-Crawler/1.0)
+FETCHER_CACHE_TTL=3600               # Cache TTL in seconds
+FETCHER_AI_MAX_LENGTH=8000           # Max content length for AI
+
+# =================================================================
+# SERVER CONFIGURATION
+# =================================================================
+SERVER_HOST=0.0.0.0
+SERVER_PORT=8000
+
+# =================================================================
+# LOGGING CONFIGURATION
+# =================================================================
+LOG_LEVEL=INFO
+LOG_TO_FILE=true
+LOG_FILE_PATH=logs/app.log
+DEBUG_ENABLED=false
+
+# =================================================================
+# RETRY CONFIGURATION
+# =================================================================
+RETRY_MAX_ATTEMPTS=3
+RETRY_BASE_DELAY=1.0
+RETRY_MAX_DELAY=60.0
+
+# Provider-specific retry settings
+OPENAI_MAX_RETRIES=3
+GITHUB_MAX_RETRIES=3
+GITHUB_RPM_LIMIT=15                  # GitHub has strict rate limits
+```
+
+### Configuration Features
+
+- **Type Safety**: All configuration values are validated and type-checked
+- **Environment Variables**: Automatic loading from `.env` files
+- **Validation**: Invalid values are caught early with clear error messages
+- **Documentation**: Each setting includes description and default values
+- **Organized Sections**: Configuration grouped by functionality
+- **Backward Compatibility**: Maintains same variable names as before
+
+### Configuration Access
+
+The configuration system provides both modern Pydantic access and backward-compatible exports:
+
+```python
+# Modern Pydantic access
+from app.config.pydantic_config import settings
+print(settings.openai.api_key)
+print(settings.web_fetcher.timeout)
+
+# Backward-compatible access (recommended for existing code)
+from app.config.pydantic_config import OPENAI_API_KEY, FETCHER_TIMEOUT
+print(OPENAI_API_KEY)
+print(FETCHER_TIMEOUT)
 ```
 
 ### Store Configuration
@@ -240,10 +322,10 @@ mypy app/
 
 ### Adding New Features
 
-1. **New Recipe Sites**: Extend `RecipeCrawler` in `recipe_crawler.py`
-2. **New Stores**: Add adapters to `store_crawler.py`
-3. **New AI Providers**: Implement `BaseAIProvider` in `ai_service.py`
-4. **New Bill Formats**: Extend `BillGenerator` in `bill_generator.py`
+1. **New Recipe Sites**: Extend web fetching and parsing in `web_fetcher.py`
+2. **New AI Providers**: Implement `BaseAIProvider` in `ia_provider/` directory
+3. **New Configuration**: Add settings to `pydantic_config.py` with proper validation
+4. **New Services**: Create new services in `services/` directory with proper logging
 
 ## 📊 Optimization Strategies
 
@@ -322,9 +404,10 @@ MIT License - see LICENSE file for details.
 - For Ollama, ensure service is running: `ollama serve`
 
 **Rate Limiting (429 Too Many Requests)**
-- GitHub Models has strict rate limits - the app includes automatic retry logic
+- GitHub Models has strict rate limits (15 requests/minute)
+- The app includes automatic retry logic with exponential backoff
 - Configure rate limiting settings in your `.env` file:
-  ```bash
+  ```env
   GITHUB_RPM_LIMIT=15        # Requests per minute (default: 15)
   GITHUB_MAX_RETRIES=3       # Number of retries (default: 3)
   GITHUB_BASE_DELAY=1.0      # Base delay in seconds (default: 1.0)
@@ -361,6 +444,16 @@ MIT License - see LICENSE file for details.
 - [ ] Mobile app development
 - [ ] Meal planning features
 - [ ] Integration with shopping list apps
+
+## 🆕 Recent Updates
+
+### v2.0 - Modern Configuration & Type Safety
+- **Pydantic Settings**: Migrated from manual environment variable handling to type-safe Pydantic configuration
+- **Enhanced Validation**: All configuration values are now validated with clear error messages
+- **Organized Structure**: Configuration grouped into logical sections (AI providers, web fetcher, logging, etc.)
+- **Better Documentation**: Each setting includes descriptions and sensible defaults
+- **Improved Error Handling**: Robust retry logic with exponential backoff for all AI providers
+- **Code Cleanup**: Removed outdated test files and consolidated configuration management
 
 ---
 

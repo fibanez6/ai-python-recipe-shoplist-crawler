@@ -5,7 +5,8 @@ import os
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from ..config.logging_config import get_logger
+from ..config.pydantic_config import AI_PROVIDER
+from ..config.logging_config import get_logger, log_function_call
 from ..models import Ingredient, Product, Recipe
 from ..ia_provider import (
     BaseAIProvider,
@@ -34,7 +35,7 @@ class AIService:
     """Main AI service that manages different providers."""
     
     def __init__(self, provider: Optional[str] = None):
-        self.provider_name = provider or os.getenv("AI_PROVIDER", "openai")
+        self.provider_name = provider or AI_PROVIDER
         self.provider = self._create_provider(self.provider_name)
     
     def _create_provider(self, provider_name: str) -> BaseAIProvider:
@@ -63,7 +64,7 @@ class AIService:
         try:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f"[AIService] HTML content length: {len(html_content)} chars from {url}")
-                logger.debug(f"[AIService] Recipe content: {html_content}")
+                logger.debug(f"[AIService] Recipe content (first 5 lines): {chr(10).join(html_content.splitlines()[:5])}")
 
             recipe_data = await self.provider.extract_recipe_data(html_content, url)
             

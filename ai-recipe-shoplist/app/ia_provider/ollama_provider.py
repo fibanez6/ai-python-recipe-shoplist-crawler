@@ -1,8 +1,8 @@
 """Ollama local LLM provider implementation."""
 
-import os
 from typing import Dict, List
 
+from ..config.pydantic_config import OLLAMA_HOST, OLLAMA_MODEL, OLLAMA_TIMEOUT
 from ..config.logging_config import get_logger
 from ..utils.retry_utils import NetworkError, create_ai_retry_config, with_ai_retry
 from .base_provider import BaseAIProvider
@@ -25,9 +25,9 @@ class OllamaProvider(BaseAIProvider):
             raise ImportError("Ollama library not installed. Run: pip install ollama")
         
         self.name = "OllamaProvider"
-        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.model = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
-        self.timeout = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+        self.base_url = OLLAMA_HOST
+        self.model = OLLAMA_MODEL
+        self.timeout = OLLAMA_TIMEOUT
         
         # Create tenacity-based retry configuration (local service, no rate limiting needed usually)
         self.retry_config = create_ai_retry_config("OLLAMA", requests_per_minute=0)  # 0 = no rate limiting
