@@ -5,8 +5,6 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
-from bs4 import BeautifulSoup
-
 from ..config.pydantic_config import FETCHER_AI_MAX_LENGTH
 from ..config.logging_config import get_logger
 from ..utils.ai_helpers import (
@@ -21,6 +19,11 @@ from ..utils.ai_helpers import (
     validate_ingredient_data,
     validate_recipe_data,
 )
+from ..utils.str_helpers import (
+    count_chars,
+    count_words,
+    count_lines,
+)
 
 # Get module logger
 logger = get_logger(__name__)
@@ -30,12 +33,15 @@ from ..utils.retry_utils import (
     NetworkError,
     RateLimitError,
     ServerError,
-    create_ai_retry_config,
     with_ai_retry,
 )
+from ..services.tokenizer_service import TokenizerService  # Import TokenizerService
 
 class BaseAIProvider(ABC):
     """Complete a chat conversation using AI Models with tenacity retry logic."""
+
+    def __init__(self):
+        self.tokenizer = TokenizerService()
 
     @property
     @abstractmethod
@@ -72,9 +78,35 @@ class BaseAIProvider(ABC):
     def retry_config(self) -> AIRetryConfig:
         """Each child must define a retry configuration"""
         pass
+
+    def truncate_to_max_tokens(self, text: str) -> str:
+        """Truncate text to fit within the provider's max token limit."""
+
+        if logger.isEnabledFor(logging.DEBUG):
+            stats = json.dumps({
+                "chars": count_chars(text),
+                "words": count_words(text),
+                "lines": count_lines(text),
+                "tokens": self.tokenizer.count_tokens(text)
+            })
+            logger.debug(f"[{self.name}] Stats text content before truncation: {stats}")
+
+        truncated = self.tokenizer.truncate_to_token_limit(text, self.max_tokens)
+
+        if logger.isEnabledFor(logging.DEBUG):
+            stats = json.dumps({
+                "chars": count_chars(truncated),
+                "words": count_words(truncated),
+                "lines": count_lines(truncated),
+                "tokens": self.tokenizer.count_tokens(truncated)
+            })
+            logger.debug(f"[{self.name}] Stats text content after truncation: {stats}")
+
+        return truncated
     
     async def complete_chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
         """Complete a chat conversation."""
+
         max_tokens = kwargs.get("max_tokens", self.max_tokens)
         temperature = kwargs.get("temperature", self.temperature)
 
@@ -112,7 +144,9 @@ class BaseAIProvider(ABC):
         try:
             result_content = await chat_completion_request()
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"[{self.name}] OpenAI response preview: {result_content[:300]}{'...' if len(result_content) > 300 else ''}")
+                logger.debug(f"[{self.name}] OpenAI response preview: {result_content}")
+            #     logger.debug(f"[{self.name}] OpenAI response preview: {result_content[:300]}{'...' if len(result_content) > 300 else ''}")
+
             return result_content
         
         except Exception as e:
@@ -124,16 +158,8 @@ class BaseAIProvider(ABC):
 
         logger.info(f"[{self.name}] Extracting recipe data from URL: {url}")
 
-        # Get max length from environment variable
-        max_ai_length = FETCHER_AI_MAX_LENGTH
-        
         # Truncate HTML if too long
-        if len(html_content) > max_ai_length:
-            soup = BeautifulSoup(html_content, 'html.parser')
-            # Remove script and style elements
-            for script in soup(["script", "style"]):
-                script.decompose()
-            html_content = str(soup)[:max_ai_length]
+        html_content = self.truncate_to_max_tokens(html_content)
 
         # Set system message
         system = RECIPE_EXTRACTION_SYSTEM

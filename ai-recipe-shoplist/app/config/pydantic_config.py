@@ -162,6 +162,14 @@ class MockSettings(BaseSettings):
     
     model_config = ConfigDict(env_prefix="")
 
+class TiktokenSettings(BaseSettings):
+    """tiktoken configuration settings."""
+
+    model: str | None = Field(default=None, description="AI provider to use")
+    encoder: str = Field(default="o200k_base", description="AI provider to use")
+
+    model_config = ConfigDict(env_prefix="TIKTOKEN_")
+
 
 class AppSettings(BaseSettings):
     """Main application settings that combines all configuration sections."""
@@ -178,9 +186,10 @@ class AppSettings(BaseSettings):
     retry: RetrySettings = Field(default_factory=RetrySettings)
     store: StoreSettings = Field(default_factory=StoreSettings)
     mock: MockSettings = Field(default_factory=MockSettings)
-    
-    @field_validator('web_fetcher', 'ai_provider', 'openai', 'azure', 'ollama', 'github', 
-              'logging', 'server', 'retry', 'store', 'mock', mode='before')
+    tiktoken: TiktokenSettings = Field(default_factory=TiktokenSettings)
+
+    @field_validator('web_fetcher', 'ai_provider', 'openai', 'azure', 'ollama', 'github',
+              'logging', 'server', 'retry', 'store', 'mock', 'tiktoken', mode='before')
     @classmethod
     def ensure_settings_instances(cls, v, info):
         """Ensure all settings are properly instantiated."""
@@ -261,6 +270,9 @@ FETCHER_TMP_FOLDER = settings.web_fetcher.tmp_folder
 FETCHER_ENABLE_CONTENT_SAVING = settings.web_fetcher.enable_content_saving
 FETCHER_ENABLE_CONTENT_LOADING = settings.web_fetcher.enable_content_loading
 FETCHER_AI_MAX_LENGTH = settings.web_fetcher.ai_max_length
+
+TIKTOKEN_MODEL = settings.tiktoken.model
+TIKTOKEN_ENCODER = settings.tiktoken.encoder
 
 AI_PROVIDER = settings.ai_provider.provider
 
