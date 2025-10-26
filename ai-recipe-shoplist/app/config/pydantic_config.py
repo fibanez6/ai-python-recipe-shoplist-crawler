@@ -23,7 +23,7 @@ class WebFetcherSettings(BaseSettings):
     tmp_folder: str = Field(default="tmp/web_cache", description="Temporary folder for caching")
     enable_content_saving: bool = Field(default=False, description="Enable saving content to disk")
     enable_content_loading: bool = Field(default=False, description="Enable loading content from disk")
-    ai_max_length: int = Field(default=8000, description="Maximum content length for AI processing")
+    cleaner_html_to_text: bool = Field(default=False, description="Convert HTML to plain text for AI processing")
     
     model_config = ConfigDict(env_prefix="FETCHER_")
 
@@ -269,7 +269,7 @@ FETCHER_CACHE_TTL = settings.web_fetcher.cache_ttl
 FETCHER_TMP_FOLDER = settings.web_fetcher.tmp_folder
 FETCHER_ENABLE_CONTENT_SAVING = settings.web_fetcher.enable_content_saving
 FETCHER_ENABLE_CONTENT_LOADING = settings.web_fetcher.enable_content_loading
-FETCHER_AI_MAX_LENGTH = settings.web_fetcher.ai_max_length
+FETCHER_CLEANER_HTML_TO_TEXT = settings.web_fetcher.cleaner_html_to_text
 
 TIKTOKEN_MODEL = settings.tiktoken.model
 TIKTOKEN_ENCODER = settings.tiktoken.encoder

@@ -5,7 +5,6 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
-from ..config.pydantic_config import FETCHER_AI_MAX_LENGTH
 from ..config.logging_config import get_logger
 from ..utils.ai_helpers import (
     INGREDIENT_NORMALIZATION_PROMPT,
@@ -63,12 +62,6 @@ class BaseAIProvider(ABC):
 
     @property
     @abstractmethod
-    def max_tokens(self) -> int:
-        """Each child must define a max_tokens"""
-        pass
-
-    @property
-    @abstractmethod
     def temperature(self) -> float:
         """Each child must define a temperature"""
         pass
@@ -116,7 +109,7 @@ class BaseAIProvider(ABC):
         if logger.isEnabledFor(logging.DEBUG):
             for i, msg in enumerate(messages):
                 content = msg.get('content', '')[:200] + '...' if len(msg.get('content', '')) > 200 else msg.get('content', '')
-                logger.debug(f"  Message {i+1} ({msg.get('role', 'unknown')}): {content}")
+                logger.debug(f"[{self.name}] Message {i+1} ({msg.get('role', 'unknown')}): {content}")
 
         @with_ai_retry(self.retry_config)
         async def chat_completion_request():            
@@ -144,8 +137,8 @@ class BaseAIProvider(ABC):
         try:
             result_content = await chat_completion_request()
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"[{self.name}] OpenAI response preview: {result_content}")
-            #     logger.debug(f"[{self.name}] OpenAI response preview: {result_content[:300]}{'...' if len(result_content) > 300 else ''}")
+                # logger.debug(f"[{self.name}] OpenAI response preview: {result_content}")
+                logger.debug(f"[{self.name}] OpenAI response preview: {result_content[:300]}{'...' if len(result_content) > 300 else ''}")
 
             return result_content
         
@@ -228,7 +221,8 @@ class BaseAIProvider(ABC):
             response = await self.complete_chat(messages, max_tokens=1000)
 
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"[{self.name}] Response: {response}")
+                # logger.debug(f"[{self.name}] Response: {response}")
+                logger.debug(f"[{self.name}] Response (truncated): {response[:500]}{'...' if len(response) > 500 else ''}")
 
             # Use centralized JSON parsing with validation
             ingredient_data = safe_json_parse(response, fallback=[])

@@ -141,8 +141,8 @@ async def process_recipe(url: str = Form(...)):
         logger.info(f"Processing recipe URL: {url}")
         
         # Use AI service for intelligent extraction
-        ai_service = get_ai_service()
         web_fetcher = get_web_fetcher()
+        ai_service = get_ai_service()
         
         # Fetch recipe content using the web fetcher service
         fetch_result = await web_fetcher.fetch_recipe_content(url, clean_html=True)

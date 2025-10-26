@@ -249,10 +249,6 @@ def format_ai_prompt(template: str, **kwargs) -> str:
 
 RECIPE_EXTRACTION_SYSTEM = """You are a web crawler / price comparison assistant that does the following steps:
 Reads recipes online — extracts the list of ingredients and quantities and return only valid JSON.
-"""
-
-RECIPE_EXTRACTION_PROMPT = """
-Extract recipe information from this HTML content and return as JSON:
 
 Required fields:
 - title: recipe name
@@ -263,6 +259,10 @@ Required fields:
 - ingredients: array of ingredient strings
 - instructions: array of instruction steps
 - image_url: main recipe image URL (or null)
+"""
+
+RECIPE_EXTRACTION_PROMPT = """
+Extract recipe information from this HTML content and return as JSON:
 
 HTML content:
 {html_content}

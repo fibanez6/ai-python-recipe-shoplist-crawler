@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 import httpx
-from bs4 import BeautifulSoup
 
 from ..config.pydantic_config import (
     FETCHER_TIMEOUT,
@@ -25,11 +24,11 @@ from ..config.pydantic_config import (
     FETCHER_TMP_FOLDER,
     FETCHER_ENABLE_CONTENT_SAVING,
     FETCHER_ENABLE_CONTENT_LOADING,
-    FETCHER_AI_MAX_LENGTH
 )
 from ..config.logging_config import get_logger, log_api_request, log_function_call
 from .cache_manager import CacheManager
 from .content_storage import ContentStorage
+from ..utils.html_helpers import clean_html_for_ai
 
 logger = get_logger(__name__)
 
@@ -128,7 +127,7 @@ class WebFetcher:
                 
                 logger.info(f"[WebFetcher] Successfully fetched {url} - {content_length} bytes in {duration:.2f}s")
                 return result
-                
+              
         except httpx.TimeoutException:
             duration = time.time() - start_time
             log_api_request("WebFetcher", url, 0, duration, False)
@@ -185,7 +184,7 @@ class WebFetcher:
             
             # If not found on disk or loading disabled, generate cleaned content
             if cleaned_content is None:
-                cleaned_content = self._clean_html_for_ai(result["content"])
+                cleaned_content = clean_html_for_ai(result["content"])
                 logger.debug(f"[WebFetcher] Generated cleaned HTML content: {len(result['content'])} -> {len(cleaned_content)} chars")
             
             result["cleaned_content"] = cleaned_content
@@ -208,62 +207,6 @@ class WebFetcher:
             logger.debug(f"[WebFetcher] Content saving disabled for {url}")
 
         return result
-    
-    def _clean_html_for_ai(self, html_content: str, max_length: int = None) -> str:
-        """
-        Clean HTML content for AI processing by removing unnecessary elements.
-        
-        Args:
-            html_content: Raw HTML content
-            max_length: Maximum length of cleaned content (uses FETCHER_AI_MAX_LENGTH env var if None)
-            
-        Returns:
-            Cleaned HTML content
-        """
-        if max_length is None:
-            max_length = FETCHER_AI_MAX_LENGTH
-            
-        try:
-            soup = BeautifulSoup(html_content, 'html.parser')
-            
-            # Remove script and style elements
-            for element in soup(["script", "style", "nav", "header", "footer", "aside", "svg", "link", "meta"]):
-                element.decompose()
-            
-            # Remove comments
-            from bs4 import Comment
-            for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
-                comment.extract()
-            
-            # Remove empty elements
-            for element in soup.find_all():
-                if not element.get_text(strip=True) and not element.find_all():
-                    element.decompose()
-            
-            # Get cleaned text
-            cleaned = str(soup)
-            
-            # Remove empty lines and excessive whitespace
-            lines = cleaned.split('\n')
-            non_empty_lines = []
-            for line in lines:
-                stripped_line = line.strip()
-                if stripped_line:  # Only keep non-empty lines
-                    non_empty_lines.append(stripped_line)
-            
-            # Join lines back with single newlines
-            cleaned = '\n'.join(non_empty_lines)
-            
-            # Truncate if too long
-            if len(cleaned) > max_length:
-                cleaned = cleaned[:max_length]
-                logger.debug(f"[WebFetcher] Truncated HTML content to {max_length} characters")
-            
-            return cleaned
-            
-        except Exception as e:
-            logger.warning(f"[WebFetcher] Error cleaning HTML: {e}, returning truncated original")
-            return html_content[:max_length]
     
     def clear_cache(self, clear_file_cache: bool = True, clear_content_files: bool = False) -> None:
         """

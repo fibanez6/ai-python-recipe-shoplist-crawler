@@ -262,7 +262,6 @@ FETCHER_TIMEOUT=30                    # Request timeout in seconds
 FETCHER_MAX_SIZE=10485760            # Max content size (10MB)
 FETCHER_USER_AGENT=Mozilla/5.0 (compatible; AI-Recipe-Crawler/1.0)
 FETCHER_CACHE_TTL=3600               # Cache TTL in seconds
-FETCHER_AI_MAX_LENGTH=8000           # Max content length for AI
 
 # =================================================================
 # SERVER CONFIGURATION

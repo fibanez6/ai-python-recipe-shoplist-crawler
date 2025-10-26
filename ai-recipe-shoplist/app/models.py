@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-
 class QuantityUnit(str, Enum):
     """Standard quantity units for ingredients."""
     # Volume
@@ -48,7 +47,7 @@ class Ingredient(BaseModel):
     """Represents a recipe ingredient with quantity and unit."""
     name: str = Field(..., description="Name of the ingredient")
     quantity: Optional[float] = Field(None, description="Amount needed")
-    unit: Optional[QuantityUnit] = Field(None, description="Unit of measurement")
+    unit: Optional[str] = Field(None, description="Unit of measurement")
     original_text: str = Field(..., description="Original ingredient text from recipe")
     optional: bool = Field(False, description="Whether ingredient is optional")
 

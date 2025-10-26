@@ -120,6 +120,103 @@ def test_prompt_formatting():
     
     print()
 
+def test_validate_ingredient_data():
+    """Test with a complex AI response that includes markdown and extra text."""
+    logger = get_logger(__name__)
+
+    logger.info("Testing validate AI Response")
+    logger.info("=" * 40)
+    
+    complex_response = '''
+[
+  {
+    "name": "ripe tomatoes",
+    "quantity": 2,
+    "unit": "pounds",
+    "original_text": "2 pounds ripe tomatoes, chopped"
+  },
+  {
+    "name": "cucumber",
+    "quantity": 1,
+    "unit": null,
+    "original_text": "1 cucumber, peeled and chopped"
+  },
+  {
+    "name": "bell pepper",
+    "quantity": 1,
+    "unit": null,
+    "original_text": "1 bell pepper, chopped"
+  },
+  {
+    "name": "small red onion",
+    "quantity": 1,
+    "unit": null,
+    "original_text": "1 small red onion, chopped"
+  },
+  {
+    "name": "garlic",
+    "quantity": 2,
+    "unit": "cloves",
+    "original_text": "2 cloves garlic, minced"
+  },
+  {
+    "name": "tomato juice",
+    "quantity": 3,
+    "unit": "cups",
+    "original_text": "3 cups tomato juice"
+  },
+  {
+    "name": "olive oil",
+    "quantity": 0.25,
+    "unit": "cup",
+    "original_text": "1/4 cup olive oil"
+  },
+  {
+    "name": "red wine vinegar",
+    "quantity": 2,
+    "unit": "tablespoons",
+    "original_text": "2 tablespoons red wine vinegar"
+  },
+  {
+    "name": "salt",
+    "quantity": 1,
+    "unit": "teaspoon",
+    "original_text": "1 teaspoon salt"
+  },
+  {
+    "name": "ground black pepper",
+    "quantity": 0.25,
+    "unit": "teaspoon",
+    "original_text": "1/4 teaspoon ground black pepper"
+  },
+  {
+    "name": "cayenne pepper",
+    "quantity": 0.25,
+    "unit": "teaspoon",
+    "original_text": "1/4 teaspoon cayenne pepper"
+  },
+  {
+    "name": "chopped fresh basil",
+    "quantity": 0.25,
+    "unit": "cup",
+    "original_text": "1/4 cup chopped fresh basil"
+  }
+]
+    '''
+    
+    logger.info("Complex response input:")
+    logger.info(complex_response[:100] + "...")
+    
+    # Test different parsing methods
+    parsed = safe_json_parse(complex_response)
+    logger.info(f"\nSafe parsed result: {parsed}")
+    
+    if parsed:
+        validated = validate_ingredient_data(parsed)
+        logger.info(f"\nValidated ingredients: {validated}")
+    
+    print()    
+
 def test_complex_response():
     """Test with a complex AI response that includes markdown and extra text."""
     logger = get_logger(__name__)
@@ -179,6 +276,7 @@ def main():
         test_ingredient_validation() 
         test_recipe_validation()
         test_prompt_formatting()
+        test_validate_ingredient_data()
         test_complex_response()
         
         logger.info("✅ All tests completed successfully!")
