@@ -108,31 +108,6 @@ class StubProvider(BaseAIProvider):
         
         return self._get_default_recipe_analysis()
     
-    async def normalize_ingredients(self, ingredients: List[str]) -> List[Dict[str, Any]]:
-        """Normalize ingredient texts using stub responses."""
-        logger.debug(f"Stub ingredient normalization - Ingredients: {len(ingredients)}")
-        
-        responses = self.response_cache.get("shopping_optimization", {})
-        
-        if not responses:
-            return self._get_default_normalized_ingredients(ingredients)
-        
-        # Try to match based on ingredients
-        ingredient_names = [ing.lower() for ing in ingredients]
-        
-        if any("spaghetti" in name or "pancetta" in name for name in ingredient_names):
-            if "carbonara_shopping_plan" in responses:
-                return responses["carbonara_shopping_plan"]["output"].get("normalized_ingredients", 
-                                                                       self._get_default_normalized_ingredients(ingredients))
-        
-        # Return a random response if no specific match
-        if responses:
-            random_response = random.choice(list(responses.values()))
-            return random_response["output"].get("normalized_ingredients", 
-                                               self._get_default_normalized_ingredients(ingredients))
-        
-        return self._get_default_normalized_ingredients(ingredients)
-    
     async def match_products(self, ingredient: str, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Match and rank products using stub responses."""
         logger.debug(f"Stub product matching - Ingredient: {ingredient}, Products: {len(products)}")

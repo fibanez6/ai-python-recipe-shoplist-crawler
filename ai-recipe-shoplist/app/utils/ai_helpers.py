@@ -152,82 +152,6 @@ def normalize_ai_response(response: str, expected_type: str = "auto") -> Any:
     # Return None if nothing worked
     return None
 
-
-def validate_ingredient_data(data: List[Dict]) -> List[Dict]:
-    """
-    Validate and clean ingredient data from AI response.
-    
-    Args:
-        data: List of ingredient dictionaries
-        
-    Returns:
-        Validated and cleaned ingredient list
-    """
-    if not isinstance(data, list):
-        return []
-    
-    validated = []
-    for item in data:
-        if not isinstance(item, dict):
-            continue
-        
-        # Ensure required fields exist
-        ingredient = {
-            "name": str(item.get("name", "")).strip(),
-            "quantity": item.get("quantity"),
-            "unit": item.get("unit"),
-            "original_text": str(item.get("original_text", "")).strip()
-        }
-        
-        # Only add if name is not empty
-        if ingredient["name"]:
-            validated.append(ingredient)
-    
-    return validated
-
-
-def validate_recipe_data(data: Dict) -> Dict:
-    """
-    Validate and clean recipe data from AI response.
-    
-    Args:
-        data: Recipe dictionary
-        
-    Returns:
-        Validated and cleaned recipe data
-    """
-    if not isinstance(data, dict):
-        return {}
-    
-    # Set defaults for required fields
-    recipe = {
-        "title": str(data.get("title", "Unknown Recipe")).strip(),
-        "description": str(data.get("description", "")).strip(),
-        "servings": data.get("servings"),
-        "prep_time": data.get("prep_time"),
-        "cook_time": data.get("cook_time"),
-        "ingredients": data.get("ingredients", []),
-        "instructions": data.get("instructions", []),
-        "image_url": data.get("image_url")
-    }
-    
-    # Validate servings as number
-    if recipe["servings"] is not None:
-        try:
-            recipe["servings"] = int(recipe["servings"])
-        except (ValueError, TypeError):
-            recipe["servings"] = None
-    
-    # Ensure ingredients and instructions are lists
-    if not isinstance(recipe["ingredients"], list):
-        recipe["ingredients"] = []
-    
-    if not isinstance(recipe["instructions"], list):
-        recipe["instructions"] = []
-    
-    return recipe
-
-
 def format_ai_prompt(template: str, **kwargs) -> str:
     """
     Format AI prompt template with parameters.
@@ -247,18 +171,8 @@ def format_ai_prompt(template: str, **kwargs) -> str:
 
 # Common prompt templates
 
-RECIPE_EXTRACTION_SYSTEM = """You are a web crawler / price comparison assistant that does the following steps:
-Reads recipes online — extracts the list of ingredients and quantities and return only valid JSON.
-
-Required fields:
-- title: recipe name
-- description: brief description
-- servings: number of servings (integer or null)
-- prep_time: preparation time (string or null)
-- cook_time: cooking time (string or null)
-- ingredients: array of ingredient strings
-- instructions: array of instruction steps
-- image_url: main recipe image URL (or null)
+RECIPE_EXTRACTION_SYSTEM = """
+You are a web crawler / price comparison assistant that reads recipes online — extracts the list of ingredients and quantities and return only valid JSON.
 """
 
 RECIPE_EXTRACTION_PROMPT = """
@@ -268,21 +182,6 @@ HTML content:
 {html_content}
 
 Return only valid JSON, no additional text.
-"""
-
-INGREDIENT_NORMALIZATION_SYSTEM = "You are an expert at parsing cooking ingredients. Return only valid JSON."
-
-INGREDIENT_NORMALIZATION_PROMPT = """
-Parse these ingredient texts into structured data. For each ingredient, extract:
-- name: clean ingredient name (e.g., "flour", "chicken breast")
-- quantity: numeric amount (float or null)
-- unit: measurement unit (e.g., "cup", "tbsp", "kg", "g", "lb") or null
-- original_text: the original input text
-
-Ingredients:
-{ingredients_json}
-
-Return as JSON array with objects for each ingredient.
 """
 
 PRODUCT_MATCHING_SYSTEM = "You are a grocery shopping expert. Rank products by relevance and quality."

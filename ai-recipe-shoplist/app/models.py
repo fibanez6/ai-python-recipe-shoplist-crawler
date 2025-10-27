@@ -42,12 +42,14 @@ class QuantityUnit(str, Enum):
     DASH = "dash"
     TO_TASTE = "to taste"
 
+    DEFAULT = ITEM
+
 
 class Ingredient(BaseModel):
     """Represents a recipe ingredient with quantity and unit."""
     name: str = Field(..., description="Name of the ingredient")
     quantity: Optional[float] = Field(None, description="Amount needed")
-    unit: Optional[str] = Field(None, description="Unit of measurement")
+    unit: Optional[QuantityUnit] = Field(QuantityUnit.DEFAULT, description="Unit of measurement")
     original_text: str = Field(..., description="Original ingredient text from recipe")
     optional: bool = Field(False, description="Whether ingredient is optional")
 
@@ -56,13 +58,26 @@ class Recipe(BaseModel):
     """Represents a parsed recipe."""
     title: str = Field(..., description="Recipe title")
     url: str = Field(..., description="Source URL")
-    description: Optional[str] = Field(None, description="Recipe description")
+    description: Optional[str] = Field(None, description="Recipe brief description")
     servings: Optional[int] = Field(None, description="Number of servings")
     prep_time: Optional[str] = Field(None, description="Preparation time")
     cook_time: Optional[str] = Field(None, description="Cooking time")
     ingredients: List[Ingredient] = Field(..., description="List of ingredients")
     instructions: List[str] = Field(default_factory=list, description="Cooking instructions")
     image_url: Optional[str] = Field(None, description="Recipe image URL")
+
+    def default() -> "Recipe":
+        """Returns a default example recipe."""
+        return Recipe(
+            title="Recipe Title",
+            description="",
+            servings=None,
+            prep_time=None,
+            cook_time=None,
+            ingredients=[],
+            instructions=[],
+            image_url=None
+        )
 
 
 class Product(BaseModel):

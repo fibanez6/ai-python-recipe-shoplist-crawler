@@ -2,11 +2,34 @@
 Centralized logging configuration for the AI Recipe Shoplist Crawler.
 """
 
+from datetime import time
 import logging
 import os
-import sys
-from typing import Optional
+import json
+from typing import Any, Optional
+from rich.console import Console
+from rich.logging import RichHandler
 
+
+class RichJSONFormatter(logging.Formatter):
+    """Custom formatter that pretty-prints JSON or dict logs with Rich-compatible output."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        message = record.msg
+
+        # Handle dicts
+        if isinstance(message, dict):
+            try:
+                return json.dumps(message, indent=2, ensure_ascii=False)
+            except Exception:
+                pass  # fallback to string
+
+        # Handle JSON strings
+        try:
+            parsed = json.loads(record.getMessage())
+            return json.dumps(parsed, indent=2, ensure_ascii=False)
+        except (json.JSONDecodeError, TypeError):
+            return super().format(record)
 
 def setup_logging(
     level: Optional[str] = None,
@@ -47,18 +70,27 @@ def setup_logging(
     # Clear any existing handlers to avoid duplicates
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
+
+    # Setup Rich console
+    console = Console()
+
+    # Create rich handler with custom JSON formatter
+    rich_handler = RichHandler(console=console, show_time=True, show_level=True, markup=True)
+    rich_handler.setLevel(numeric_level)
+    rich_handler.setFormatter(RichJSONFormatter())
     
-    # Create formatters
-    formatter = logging.Formatter(format_string)
-    
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(numeric_level)
-    
-    # Configure root logger
-    root_logger.addHandler(console_handler)
+    # Add handler to root logger
+    root_logger.addHandler(rich_handler)
     root_logger.setLevel(numeric_level)
+    
+    # # Console handler
+    # console_handler = logging.StreamHandler(sys.stdout)
+    # console_handler.setFormatter(logging.Formatter(format_string))
+    # console_handler.setLevel(numeric_level)
+    
+    # # Configure root logger
+    # root_logger.addHandler(console_handler)
+    # root_logger.setLevel(numeric_level)
     
     # File handler (optional)
     if enable_file_logging:
@@ -69,7 +101,7 @@ def setup_logging(
         
         # Create file handler with append mode
         file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
-        file_handler.setFormatter(formatter)
+        file_handler.setFormatter(logging.Formatter(format_string))
         file_handler.setLevel(numeric_level)
         root_logger.addHandler(file_handler)
     
@@ -84,7 +116,15 @@ def setup_logging(
     app_logger.info(f"Logging configured - Level: {logging.getLevelName(numeric_level)}, Debug: {debug_enabled}")
     
     if enable_file_logging:
-        app_logger.info(f"File logging enabled - Log file: {log_file}")
+       app_logger.info(
+        {
+            "event": "logging_configured",
+            "level": logging.getLevelName(numeric_level),
+            "debug": debug_enabled,
+            "file_logging": enable_file_logging,
+            "log_file": log_file if enable_file_logging else None,
+        }
+    )
     
     return app_logger
 
@@ -163,7 +203,10 @@ def log_function_call(func_name: str, args: dict = None, level: int = logging.DE
         # Sanitize sensitive data
         safe_args = {}
         for key, value in args.items():
-            if any(sensitive in key.lower() for sensitive in ['token', 'key', 'password', 'secret']):
+            if any(
+                sensitive in key.lower() 
+                for sensitive in ['token', 'key', 'password', 'secret']
+            ):
                 safe_args[key] = f"{'*' * min(8, len(str(value)))}"
             elif isinstance(value, str) and len(value) > 100:
                 safe_args[key] = f"{value[:50]}...{value[-10:]}"
@@ -189,10 +232,20 @@ def log_api_request(provider: str, endpoint: str, payload_size: int = 0,
     """
     logger = get_logger(__name__)
     
-    status = "SUCCESS" if success else "FAILED"
-    duration_str = f", Duration: {duration:.2f}s" if duration else ""
+    # status = "SUCCESS" if success else "FAILED"
+    # duration_str = f", Duration: {duration:.2f}s" if duration else ""
     
-    logger.info(f"API Request [{provider}] {status} - {endpoint}, Payload: {payload_size} bytes{duration_str}")
+    # logger.info(f"API Request [{provider}] {status} - {endpoint}, Payload: {payload_size} bytes{duration_str}")
+
+    log_entry = {
+        "event": "api_request",
+        "provider": provider,
+        "endpoint": endpoint,
+        "payload_size": payload_size,
+        "duration": duration,
+        "status": "SUCCESS" if success else "FAILED",
+    }
+    logger.info(log_entry)
 
 
 # Environment-based configuration constants

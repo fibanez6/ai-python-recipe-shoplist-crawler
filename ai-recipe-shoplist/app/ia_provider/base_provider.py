@@ -1,28 +1,28 @@
 """Base AI provider abstract class and common utilities."""
 
+from dataclasses import dataclass
 import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
+import rich
+
 from ..config.logging_config import get_logger
 from ..utils.ai_helpers import (
-    INGREDIENT_NORMALIZATION_PROMPT,
-    INGREDIENT_NORMALIZATION_SYSTEM,
     PRODUCT_MATCHING_PROMPT,
     PRODUCT_MATCHING_SYSTEM,
     RECIPE_EXTRACTION_PROMPT,
     RECIPE_EXTRACTION_SYSTEM,
     format_ai_prompt,
     safe_json_parse,
-    validate_ingredient_data,
-    validate_recipe_data,
 )
 from ..utils.str_helpers import (
     count_chars,
     count_words,
     count_lines,
 )
+from ..models import Recipe
 
 # Get module logger
 logger = get_logger(__name__)
@@ -35,6 +35,12 @@ from ..utils.retry_utils import (
     with_ai_retry,
 )
 from ..services.tokenizer_service import TokenizerService  # Import TokenizerService
+
+@dataclass
+class ChatMessageResult:
+    content: str
+    parsed: Any = None
+    refusal: Any = None
 
 class BaseAIProvider(ABC):
     """Complete a chat conversation using AI Models with tenacity retry logic."""
@@ -76,32 +82,33 @@ class BaseAIProvider(ABC):
         """Truncate text to fit within the provider's max token limit."""
 
         if logger.isEnabledFor(logging.DEBUG):
-            stats = json.dumps({
+            stats = {
                 "chars": count_chars(text),
                 "words": count_words(text),
                 "lines": count_lines(text),
                 "tokens": self.tokenizer.count_tokens(text)
-            })
+            }
             logger.debug(f"[{self.name}] Stats text content before truncation: {stats}")
 
         truncated = self.tokenizer.truncate_to_token_limit(text, self.max_tokens)
 
         if logger.isEnabledFor(logging.DEBUG):
-            stats = json.dumps({
+            stats = {
                 "chars": count_chars(truncated),
                 "words": count_words(truncated),
                 "lines": count_lines(truncated),
                 "tokens": self.tokenizer.count_tokens(truncated)
-            })
+            }
             logger.debug(f"[{self.name}] Stats text content after truncation: {stats}")
 
         return truncated
-    
-    async def complete_chat(self, messages: List[Dict[str, str]], **kwargs) -> str:
+
+    async def complete_chat(self, params: any, **kwargs) -> ChatMessageResult:
         """Complete a chat conversation."""
 
         max_tokens = kwargs.get("max_tokens", self.max_tokens)
         temperature = kwargs.get("temperature", self.temperature)
+        messages = params.get('messages') or []
 
         logger.debug(f"[{self.name}] API call - Model: {self.model}, Messages: {len(messages)}, Max tokens: {max_tokens}, Temperature: {temperature}")
 
@@ -109,19 +116,37 @@ class BaseAIProvider(ABC):
         if logger.isEnabledFor(logging.DEBUG):
             for i, msg in enumerate(messages):
                 content = msg.get('content', '')[:200] + '...' if len(msg.get('content', '')) > 200 else msg.get('content', '')
+                content = content.replace(chr(10), '; ') # replace newlines for cleaner logging
                 logger.debug(f"[{self.name}] Message {i+1} ({msg.get('role', 'unknown')}): {content}")
 
         @with_ai_retry(self.retry_config)
         async def chat_completion_request():            
             try:
-                response = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature
-                )
-                return response.choices[0].message.content
+                chat_params = {
+                    "model": self.model,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    **params
+                }
 
+                if "response_format" in chat_params:
+                    response = await self.client.chat.completions.parse(**chat_params)
+                else:
+                    response = await self.client.chat.completions.create(**chat_params)
+                
+                message = response.choices[0].message
+
+                if logger.isEnabledFor(logging.DEBUG):
+                    if message.parsed:
+                        logger.debug(f"[{self.name}] OpenAI response object: {message.parsed}")
+                    else:
+                        logger.debug(f"[{self.name}] OpenAI response preview: {message.content[:300]}{'...' if len(message.content) > 300 else ''}")
+
+                return ChatMessageResult(
+                    content=message.content,
+                    parsed=message.parsed,
+                    refusal=message.refusal
+                )
             except Exception as e:
                 # Convert provider-specific errors to our retry framework
                 error_str = str(e).lower()
@@ -135,18 +160,12 @@ class BaseAIProvider(ABC):
                     raise  # Let tenacity decide if it's retryable
 
         try:
-            result_content = await chat_completion_request()
-            if logger.isEnabledFor(logging.DEBUG):
-                # logger.debug(f"[{self.name}] OpenAI response preview: {result_content}")
-                logger.debug(f"[{self.name}] OpenAI response preview: {result_content[:300]}{'...' if len(result_content) > 300 else ''}")
-
-            return result_content
-        
+            return await chat_completion_request()
         except Exception as e:
             logger.error(f"[{self.name}] OpenAI API error: {e}")
             raise
 
-    async def extract_recipe_data(self, html_content: str, url: str) -> Dict[str, Any]:
+    async def extract_recipe_data(self, html_content: str, url: str) -> Recipe:
         """Extract structured recipe data from HTML using AI."""
 
         logger.info(f"[{self.name}] Extracting recipe data from URL: {url}")
@@ -164,16 +183,17 @@ class BaseAIProvider(ABC):
             logger.debug(f"[{self.name}] System message: {system}")
             logger.debug(f"[{self.name}] User message: {prompt[:200]}{'...' if len(prompt) > 200 else ''}")
 
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt}
-        ]
+        chat_params = {
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt}
+            ],
+            "response_format": Recipe
+        }
         
         try:
-            response = await self.complete_chat(messages, max_tokens=1500)
-            # Use centralized JSON parsing with validation
-            recipe_data = safe_json_parse(response, fallback={})
-            return validate_recipe_data(recipe_data)
+            message = await self.complete_chat(chat_params)
+            return message.parsed if message.parsed else Recipe.default()
         except Exception as e:
             logger.error(f"[{self.name}] Error in extract_recipe_data: {e}")
             # Only log response if it was defined
@@ -183,67 +203,7 @@ class BaseAIProvider(ABC):
                 logger.debug(f"[{self.name}] No response received due to earlier error")
             
             # Return minimal structure if parsing fails
-            return {
-                "title": "Recipe from " + url,
-                "description": "",
-                "servings": None,
-                "prep_time": None,
-                "cook_time": None,
-                "ingredients": [],
-                "instructions": [],
-                "image_url": None
-            }
-    
-    async def normalize_ingredients(self, ingredients: List[str]) -> List[Dict[str, Any]]:
-        """Normalize ingredient texts into structured data."""
-            
-        logger.info(f"[{self.name}] Normalizing ingredients")
-
-        # Set system message  
-        system = INGREDIENT_NORMALIZATION_SYSTEM
-        
-        # Use centralized prompt template
-        prompt = format_ai_prompt(
-            INGREDIENT_NORMALIZATION_PROMPT, 
-            ingredients_json=json.dumps(ingredients, indent=2)
-        )
-
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"[{self.name}] System message: {system}")
-            logger.debug(f"[{self.name}] User message: {prompt}")
-
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt}
-        ]
-        
-        try:
-            response = await self.complete_chat(messages, max_tokens=1000)
-
-            if logger.isEnabledFor(logging.DEBUG):
-                # logger.debug(f"[{self.name}] Response: {response}")
-                logger.debug(f"[{self.name}] Response (truncated): {response[:500]}{'...' if len(response) > 500 else ''}")
-
-            # Use centralized JSON parsing with validation
-            ingredient_data = safe_json_parse(response, fallback=[])
-            return validate_ingredient_data(ingredient_data)
-        except Exception as e:
-            logger.error(f"[{self.name}] Error normalizing ingredients: {e}")
-            # Only log response if it was defined
-            try:
-                logger.debug(f"[{self.name}] Raw response that failed to parse: {response[:500]}...")
-            except NameError:
-                logger.debug(f"[{self.name}] No response received due to earlier error")
-            # Fallback: return basic structure
-            return [
-                {
-                    "name": ing,
-                    "quantity": None,
-                    "unit": None,
-                    "original_text": ing
-                }
-                for ing in ingredients
-            ]
+            return Recipe.default()
     
     async def match_products(self, ingredient: str, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Match and rank products for an ingredient using AI."""
@@ -266,13 +226,17 @@ class BaseAIProvider(ABC):
         logger.debug(f"[{self.name}] System message: {system}")
         logger.debug(f"[{self.name}] User message: {prompt}")
 
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt}
-        ]
+        chat_params = {
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt}
+            ]
+        }
         
         try:
-            response = await self.complete_chat(messages, max_tokens=1500)
+            response = await self.complete_chat(chat_params)
+            response = response.content
+
             # Use centralized JSON parsing
             ranked_products = safe_json_parse(response, fallback=products)
             return ranked_products if isinstance(ranked_products, list) else products

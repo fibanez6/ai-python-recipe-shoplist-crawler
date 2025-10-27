@@ -2,7 +2,6 @@
 
 from .ai_helpers import (
     ALTERNATIVES_PROMPT,
-    INGREDIENT_NORMALIZATION_PROMPT,
     PRODUCT_MATCHING_PROMPT,
     RECIPE_EXTRACTION_PROMPT,
     clean_json_response,
@@ -10,8 +9,6 @@ from .ai_helpers import (
     format_ai_prompt,
     normalize_ai_response,
     safe_json_parse,
-    validate_ingredient_data,
-    validate_recipe_data,
 )
 from .retry_utils import (  # Core classes; Error types; Functions; Provider-specific configs
     AIRetryConfig,
@@ -36,11 +33,8 @@ __all__ = [
     "safe_json_parse",
     "extract_json_from_text",
     "normalize_ai_response",
-    "validate_ingredient_data",
-    "validate_recipe_data",
     "format_ai_prompt",
     "RECIPE_EXTRACTION_PROMPT",
-    "INGREDIENT_NORMALIZATION_PROMPT", 
     "PRODUCT_MATCHING_PROMPT",
     "ALTERNATIVES_PROMPT",
     

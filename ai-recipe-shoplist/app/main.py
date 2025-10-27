@@ -89,8 +89,7 @@ async def startup_event():
     logger.info("[App] Starting AI Recipe Shoplist")
 
     logger.info("[App] Initializing Store Crawler...")
-    config_summary = get_config_summary()
-    logger.debug(json.dumps(config_summary, indent=4, sort_keys=True))
+    logger.debug(get_config_summary())
     
     # Test AI service initialization
     try:

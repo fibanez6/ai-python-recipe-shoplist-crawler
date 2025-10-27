@@ -66,37 +66,8 @@ class AIService:
                 logger.debug(f"[AIService] HTML content length: {len(html_content)} chars from {url}")
                 logger.debug(f"[AIService] Recipe content (first 5 lines): {chr(10).join(html_content.splitlines()[:5])}")
 
-            recipe_data = await self.provider.extract_recipe_data(html_content, url)
-            
-            # Normalize ingredients using AI
-            if recipe_data.get("ingredients"):
-                normalized_ingredients = await self.provider.normalize_ingredients(
-                    recipe_data["ingredients"]
-                )
-                
-                # Convert to Ingredient objects
-                ingredients = []
-                for ing_data in normalized_ingredients:
-                    ingredients.append(Ingredient(
-                        name=ing_data.get("name", ""),
-                        quantity=ing_data.get("quantity"),
-                        unit=ing_data.get("unit"),
-                        original_text=ing_data.get("original_text", "")
-                    ))
-            else:
-                ingredients = []
-            
-            return Recipe(
-                title=recipe_data.get("title", "Unknown Recipe"),
-                url=url,
-                description=recipe_data.get("description", ""),
-                servings=recipe_data.get("servings"),
-                prep_time=recipe_data.get("prep_time"),
-                cook_time=recipe_data.get("cook_time"),
-                ingredients=ingredients,
-                instructions=recipe_data.get("instructions", []),
-                image_url=recipe_data.get("image_url")
-            )
+            recipe: Recipe = await self.provider.extract_recipe_data(html_content, url)
+            return recipe
         except Exception as e:
             print(f"[AIService] Error extracting recipe: {e}")
             # Fallback to basic parsing
