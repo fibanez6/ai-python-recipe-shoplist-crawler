@@ -4,11 +4,10 @@ Modern configuration management using Pydantic Settings.
 This module provides type-safe, validated configuration with automatic
 environment variable loading and .env file support.
 """
-
-from typing_extensions import get_args, Literal
-from pydantic import Field, field_validator, ConfigDict
+from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
-from pathlib import Path
+from typing_extensions import Literal, get_args
+
 
 class WebFetcherSettings(BaseSettings):
     """Web fetcher configuration settings."""

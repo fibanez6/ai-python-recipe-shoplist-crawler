@@ -1,13 +1,13 @@
 """GitHub Models provider implementation."""
 
+from ..config.logging_config import get_logger
 from ..config.pydantic_config import (
-    GITHUB_TOKEN,
-    GITHUB_MODEL,
     GITHUB_API_URL,
     GITHUB_MAX_TOKENS,
+    GITHUB_MODEL,
     GITHUB_TEMPERATURE,
+    GITHUB_TOKEN,
 )
-from ..config.logging_config import get_logger
 from ..utils.retry_utils import AIRetryConfig, create_ai_retry_config
 from .base_provider import BaseAIProvider
 

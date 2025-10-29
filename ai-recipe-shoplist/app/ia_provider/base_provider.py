@@ -1,10 +1,11 @@
 """Base AI provider abstract class and common utilities."""
 
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, List
 
 from ..config.logging_config import get_logger
+from ..models import Product, Recipe
 from ..utils.ai_helpers import (
     PRODUCT_MATCHING_PROMPT,
     PRODUCT_MATCHING_SYSTEM,
@@ -18,11 +19,14 @@ from ..utils.ai_helpers import (
     log_ai_token_stats,
     safe_json_parse,
 )
-from ..models import Recipe, Product
 
 # Get module logger
 logger = get_logger(__name__)
 
+from ..config.pydantic_config import (
+    AI_PROVIDER_CHAT_ENABLED,  # Import the new config variable
+)
+from ..services.tokenizer_service import TokenizerService  # Import TokenizerService
 from ..utils.retry_utils import (
     AIRetryConfig,
     NetworkError,
@@ -31,9 +35,6 @@ from ..utils.retry_utils import (
     with_ai_retry,
 )
 
-from ..config.pydantic_config import AI_PROVIDER_CHAT_ENABLED  # Import the new config variable
-
-from ..services.tokenizer_service import TokenizerService  # Import TokenizerService
 
 @dataclass
 class ChatMessageResult:

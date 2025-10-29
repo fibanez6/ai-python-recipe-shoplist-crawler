@@ -1,11 +1,9 @@
+from typing import Optional
+
 import tiktoken
 
-from typing import Optional
 from ..config.logging_config import get_logger
-from ..config.pydantic_config import (
-    TIKTOKEN_MODEL,
-    TIKTOKEN_ENCODER
-)
+from ..config.pydantic_config import TIKTOKEN_ENCODER, TIKTOKEN_MODEL
 
 # Get module logger
 logger = get_logger(__name__)

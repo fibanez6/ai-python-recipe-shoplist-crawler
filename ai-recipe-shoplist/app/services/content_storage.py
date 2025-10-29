@@ -1,7 +1,6 @@
 """Content storage for saving and loading web content to/from disk."""
 
 import hashlib
-import os
 import time
 from pathlib import Path
 from typing import Dict

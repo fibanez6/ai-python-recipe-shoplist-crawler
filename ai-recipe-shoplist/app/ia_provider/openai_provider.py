@@ -1,12 +1,12 @@
 """OpenAI GPT provider implementation."""
 
+from ..config.logging_config import get_logger
 from ..config.pydantic_config import (
     OPENAI_API_KEY,
-    OPENAI_MODEL,
     OPENAI_MAX_TOKENS,
+    OPENAI_MODEL,
     OPENAI_TEMPERATURE,
 )
-from ..config.logging_config import get_logger
 from ..utils.retry_utils import AIRetryConfig, create_ai_retry_config
 from .base_provider import BaseAIProvider
 

@@ -5,18 +5,24 @@ import os
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from ..config.logging_config import get_logger
 from ..config.pydantic_config import AI_PROVIDER
-from ..config.logging_config import get_logger, log_function_call
-from ..models import Ingredient, Product, Recipe
 from ..ia_provider import (
-    BaseAIProvider,
     AzureProvider,
+    BaseAIProvider,
     GitHubProvider,
     OllamaProvider,
     OpenAIProvider,
     StubProvider,
 )
-from ..utils.ai_helpers import ALTERNATIVES_PROMPT, RECIPE_SHOPPING_ASSISTANT_PROMPT, RECIPE_SHOPPING_ASSISTANT_SYSTEM, format_ai_prompt, safe_json_parse
+from ..models import Ingredient, Product, Recipe
+from ..utils.ai_helpers import (
+    ALTERNATIVES_PROMPT,
+    RECIPE_SHOPPING_ASSISTANT_PROMPT,
+    RECIPE_SHOPPING_ASSISTANT_SYSTEM,
+    format_ai_prompt,
+    safe_json_parse,
+)
 
 # Get module logger
 logger = get_logger(__name__)

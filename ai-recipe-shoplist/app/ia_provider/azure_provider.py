@@ -1,17 +1,18 @@
 """Azure OpenAI provider implementation."""
 
+import azure.identity.aio
+
+from ..config.logging_config import get_logger
 from ..config.pydantic_config import (
     AZURE_OPENAI_API_KEY,
-    AZURE_OPENAI_ENDPOINT,
     AZURE_OPENAI_API_VERSION,
     AZURE_OPENAI_DEPLOYMENT_NAME,
+    AZURE_OPENAI_ENDPOINT,
     AZURE_OPENAI_MAX_TOKENS,
     AZURE_OPENAI_TEMPERATURE,
 )
-from ..config.logging_config import get_logger
 from ..utils.retry_utils import AIRetryConfig, create_ai_retry_config
 from .base_provider import BaseAIProvider
-import azure.identity.aio
 
 # Azure OpenAI imports
 try:

@@ -2,11 +2,11 @@
 Centralized logging configuration for the AI Recipe Shoplist Crawler.
 """
 
-from datetime import time
+import json
 import logging
 import os
-import json
-from typing import Any, Optional
+from typing import Optional
+
 from rich.console import Console
 from rich.logging import RichHandler
 

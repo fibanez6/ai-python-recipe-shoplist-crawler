@@ -2,14 +2,19 @@
 
 from typing import Dict, List
 
-from ..config.pydantic_config import (
-    OLLAMA_HOST, 
-    OLLAMA_MODEL, 
-    OLLAMA_TEMPERATURE, 
-    OLLAMA_MAX_TOKENS
-)
 from ..config.logging_config import get_logger
-from ..utils.retry_utils import AIRetryConfig, NetworkError, create_ai_retry_config, with_ai_retry
+from ..config.pydantic_config import (
+    OLLAMA_HOST,
+    OLLAMA_MAX_TOKENS,
+    OLLAMA_MODEL,
+    OLLAMA_TEMPERATURE,
+)
+from ..utils.retry_utils import (
+    AIRetryConfig,
+    NetworkError,
+    create_ai_retry_config,
+    with_ai_retry,
+)
 from .base_provider import BaseAIProvider
 
 # Ollama imports

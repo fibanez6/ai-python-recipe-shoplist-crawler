@@ -16,19 +16,19 @@ from typing import Any, Dict
 
 import httpx
 
-from ..config.pydantic_config import (
-    FETCHER_TIMEOUT,
-    FETCHER_MAX_SIZE,
-    FETCHER_USER_AGENT,
-    FETCHER_CACHE_TTL,
-    FETCHER_TMP_FOLDER,
-    FETCHER_ENABLE_CONTENT_SAVING,
-    FETCHER_ENABLE_CONTENT_LOADING,
-)
 from ..config.logging_config import get_logger, log_api_request, log_function_call
+from ..config.pydantic_config import (
+    FETCHER_CACHE_TTL,
+    FETCHER_ENABLE_CONTENT_LOADING,
+    FETCHER_ENABLE_CONTENT_SAVING,
+    FETCHER_MAX_SIZE,
+    FETCHER_TIMEOUT,
+    FETCHER_TMP_FOLDER,
+    FETCHER_USER_AGENT,
+)
+from ..utils.html_helpers import clean_html_for_ai
 from .cache_manager import CacheManager
 from .content_storage import ContentStorage
-from ..utils.html_helpers import clean_html_for_ai
 
 logger = get_logger(__name__)
 
