@@ -29,6 +29,7 @@ class StoreConfig:
     # URLs and endpoints
     base_url: str
     search_url: str
+    search_api_template: str
     product_url_template: str
     
     # Search parameters
@@ -56,7 +57,10 @@ class StoreConfig:
     def get_product_url(self, product_id: str) -> str:
         """Generate product URL from template."""
         return self.product_url_template.format(product_id=product_id)
-
+    
+    def get_name_and_product_url(self, product_id: str) -> str:
+        """Return a string with the store name and product URL."""
+        return f"{self.name}: {self.get_product_url(product_id)}"
 
 # Australian grocery stores
 STORE_CONFIGS: Dict[str, StoreConfig] = {
@@ -67,7 +71,8 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         region=StoreRegion.AUSTRALIA,
         base_url="https://www.coles.com.au",
         search_url="https://www.coles.com.au/search",
-        product_url_template="https://www.coles.com.au/product/{product_id}",
+        search_api_template="https://www.coles.com.au/api/search?q={query}",
+        product_url_template="https://www.coles.com.au/search/products?q={product_id}",
         search_param="q",
         rate_limit_delay=1.5,
         price_multiplier=1.0,
@@ -86,7 +91,7 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         display_name="Woolworths Supermarkets",
         region=StoreRegion.AUSTRALIA,
         base_url="https://www.woolworths.com.au",
-        search_url="https://www.woolworths.com.au/shop/search/products",
+        search_api_template="https://www.woolworths.com.au/api/search?q={query}",
         product_url_template="https://www.woolworths.com.au/shop/productdetails/{product_id}",
         search_param="searchTerm",
         rate_limit_delay=1.2,
@@ -106,8 +111,9 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         display_name="ALDI Australia",
         region=StoreRegion.AUSTRALIA,
         base_url="https://www.aldi.com.au",
-        search_url="https://www.aldi.com.au/products",
-        product_url_template="https://api.aldi.com.au/v3/product-search?currency=AUD&serviceType=walk-in&q={product_id}&limit=12&offset=0&sort=relevance&testVariant=A&servicePoint=G452",
+        search_url="https://www.aldi.com.au/results",
+        search_api_template="https://api.aldi.com.au/v3/product-search?currency=AUD&q={product_id}",
+        product_template="https://www.aldi.com.au/product/{product_id}",
         search_param="q",
         rate_limit_delay=2.0,  # More conservative for ALDI
         price_multiplier=0.85,  # ALDI typically cheaper
@@ -127,7 +133,7 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         display_name="IGA (Independent Grocers of Australia)",
         region=StoreRegion.AUSTRALIA,
         base_url="https://www.iga.com.au", 
-        search_url="https://www.iga.com.au/search",
+        search_api_template="https://www.iga.com.au/api/search?q={query}",
         product_url_template="https://www.iga.com.au/product/{product_id}",
         search_param="term",
         rate_limit_delay=1.8,
@@ -141,51 +147,14 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
             "product_size": ".product-weight"
         }
     ),
-    
-    # US stores (for future expansion)
-    "walmart": StoreConfig(
-        store_id="walmart",
-        name="Walmart",
-        display_name="Walmart Grocery",
-        region=StoreRegion.UNITED_STATES,
-        base_url="https://www.walmart.com",
-        search_url="https://www.walmart.com/search",
-        product_url_template="https://www.walmart.com/ip/{product_id}",
-        search_param="query",
-        rate_limit_delay=1.0,
-        price_multiplier=0.95,
-        selectors={
-            "product_title": "[data-testid='product-title']",
-            "product_price": "[data-testid='product-price']",
-            "product_image": "[data-testid='product-image']",
-            "product_brand": "[data-testid='product-brand']"
-        }
-    ),
-    
-    "target": StoreConfig(
-        store_id="target",
-        name="Target",
-        display_name="Target Stores",
-        region=StoreRegion.UNITED_STATES,
-        base_url="https://www.target.com",
-        search_url="https://www.target.com/s",
-        product_url_template="https://www.target.com/p/{product_id}",
-        search_param="searchTerm",
-        rate_limit_delay=1.3,
-        price_multiplier=1.1,
-        selectors={
-            "product_title": "[data-test='product-title']",
-            "product_price": "[data-test='product-price']",
-            "product_image": "[data-test='product-image']"
-        }
-    )
+
 }
 
 
 # Regional store groups
 REGIONAL_STORES = {
     StoreRegion.AUSTRALIA: ["coles", "woolworths", "aldi", "iga"],
-    StoreRegion.UNITED_STATES: ["walmart", "target"],
+    StoreRegion.UNITED_STATES: [],   # To be added
     StoreRegion.UNITED_KINGDOM: [],  # To be added
     StoreRegion.CANADA: []  # To be added
 }

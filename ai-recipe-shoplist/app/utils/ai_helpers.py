@@ -8,7 +8,7 @@ import logging
 import re
 from typing import Any, Dict, List, Union
 
-from ..config.pydantic_config import LOG_CHAT_MESSAGE_MAX_LENGTH, LOG_MAX_LENGTH
+from ..config.pydantic_config import LOG_CHAT_MESSAGE_MAX_LENGTH, LOG_CHAT_MESSAGE_SINGLE_LINE, LOG_MAX_LENGTH
 from ..utils.str_helpers import (
     count_chars,
     count_words,
@@ -214,13 +214,15 @@ def log_ai_chat_query(provider_name: str, chat_params: List[Dict[str, str]], log
 
         # Log each message
         for i, msg in enumerate(chat_params.get('messages', [])):
-            if  LOG_CHAT_MESSAGE_MAX_LENGTH == 0:
+            if LOG_CHAT_MESSAGE_MAX_LENGTH == 0:
                 content = msg.get('content', '')
             else:
                 content = msg.get('content', '')[:LOG_CHAT_MESSAGE_MAX_LENGTH] + '...' if len(msg.get('content', '')) > LOG_CHAT_MESSAGE_MAX_LENGTH else msg.get('content', '')
             
-            content = content.replace(chr(10), '; ') # replace newlines for cleaner logging
-            logger.debug(f"[{provider_name}] Message {i+1} ({msg.get('role', 'unknown')}): {content}")
+            if LOG_CHAT_MESSAGE_SINGLE_LINE:
+                content = content.replace(chr(10), ' ')  # replace newlines with spaces for single line logging
+
+            logger.debug(f"[{provider_name}] Message {i+1} ({msg.get('role', 'unknown')}): \"\"\"\n{content}\n\"\"\"")
 
 def log_ai_chat_response(provider_name: str, response: str, logger: logging.Logger, level: int = logging.DEBUG) -> None:
     """
@@ -244,10 +246,10 @@ def log_ai_chat_response(provider_name: str, response: str, logger: logging.Logg
     if logger.isEnabledFor(level):
         message = response.choices[0].message
         content = message.parsed if hasattr(message, 'parsed') else message.content if hasattr(message, 'content') else message
-        if  LOG_MAX_LENGTH == 0:
-            logger.log(level, f"[{provider_name}] AI Response:\n {content}")
-        else:
-            logger.log(level, f"[{provider_name}] AI Response:\n {content[:LOG_MAX_LENGTH]}{'...' if len(content) > LOG_MAX_LENGTH else ''}")
+        if  LOG_MAX_LENGTH > 0:
+            content = content[:LOG_MAX_LENGTH] + ('...' if len(content) > LOG_MAX_LENGTH else '')
+        
+        logger.log(level, f"[{provider_name}] AI Response:\"\"\"\n{content}\n\"\"\"")
 
 
 # Common prompt templates
@@ -257,23 +259,35 @@ You are a web crawler / price comparison assistant that reads recipes online —
 """
 
 RECIPE_EXTRACTION_PROMPT = """
-Extract recipe information from this HTML content and return as JSON:
+Extract recipe information from this HTML content and return as JSON.
+
+Consider:
+1. Return only valid JSON
+2. No additional text
+3. Normalise ingredient names and quantities.
 
 HTML content:
 {html_content}
 
-Return only valid JSON, no additional text.
 """
 
 SEARCH_GROCERY_PRODUCTS_SYSTEM = """
 You are a web crawler / price comparison assistant that searches for grocery products online — extracts the list of products and their details and return only valid JSON.
 
 Grocery stores to search:
-{grocery_stores_list}
+{store_search}
 """
 
 SEARCH_GROCERY_PRODUCTS_PROMPT = """
-Extract grocery product information from the grocery website for a list of ingredients:
+Extract grocery product information from the grocery website for a list of ingredients.
+
+Consider:
+1. Find each ingredient, with quantity and unit
+2. Name similarity and relevance
+3. Brand quality
+4. Value for money (price vs size)
+5. Organic/premium options
+6. Quantity should be considered rounded up
 
 Ingredients:
 {ingredients}

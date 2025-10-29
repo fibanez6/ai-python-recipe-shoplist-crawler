@@ -4,8 +4,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, List
 
-from ..config.logging_config import get_logger
-from ..models import Product, Recipe
+from ..config.logging_config import get_logger, log_function_call
+from ..config.store_config import StoreConfig
+from ..models import Ingredient, Product, Recipe, ShopphingCart
 from ..utils.ai_helpers import (
     PRODUCT_MATCHING_PROMPT,
     PRODUCT_MATCHING_SYSTEM,
@@ -170,46 +171,47 @@ class BaseAIProvider(ABC):
         }
         
         try:
-            message = await self.complete_chat(chat_params)
-            return message.parsed if message.parsed else Recipe.default()
+            response = await self.complete_chat(chat_params)
+            return response.parsed if response.parsed else Recipe.default()
         except Exception as e:
             logger.error(f"[{self.name}] Error in extract_recipe_data: {e}")
-            # Only log response if it was defined
-            try:
-                logger.debug(f"[{self.name}] Raw response that failed to parse: {response[:500]}...")
-            except NameError:
-                logger.debug(f"[{self.name}] No response received due to earlier error")
             
             # Return minimal structure if parsing fails
             return Recipe.default()
-    
-    async def search_grocery_product(self, ingredient: str) -> List[Product]:
-        """Search grocery products for an ingredient using AI."""
 
-        logger.info(f"[{self.name}] Searching grocery products for ingredient: {ingredient}")
+    async def search_grocery_products(self, ingredients: List[Ingredient], stores: List[StoreConfig]) -> List[ShopphingCart]:
+        """Search grocery products for an ingredient using AI."""
+        logger.info(f"[{self.name}] Searching grocery products for {len(ingredients)} ingredients and {len(stores)} stores")
+
+        # Prepare store list
+        store_list = "\n".join( [store.get_name_and_product_url("<ingredient_name>") for store in stores] )
+        # Prepare ingredient list
+        ingredient_list = "\n".join(map(str, ingredients))
+
+
+        logger.debug(f"[{self.name}] Searching grocery products for:\n{ingredient_list}")
 
         # Set system message
-        system = format_ai_prompt(SEARCH_GROCERY_PRODUCTS_SYSTEM, grocery_stores_list=grocery_stores_list)
+        system = format_ai_prompt(SEARCH_GROCERY_PRODUCTS_SYSTEM, store_search=store_list)
 
         # Use centralized prompt template
-        prompt = format_ai_prompt(SEARCH_GROCERY_PRODUCTS_PROMPT, ingredients=ingredient)
+        prompt = format_ai_prompt(SEARCH_GROCERY_PRODUCTS_PROMPT, ingredients=ingredient_list)
 
         chat_params = {
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            "response_format": ShopphingCart
         }
         
         try:
             response = await self.complete_chat(chat_params, max_tokens=500)
-            
-            # Use centralized JSON parsing
-            products = safe_json_parse(response.content, fallback=[])
-            return products if isinstance(products, list) else []
+            return response.parsed if response.parsed else []
         except Exception as e:
-            logger.error(f"[{self.name}] Error searching grocery products: {e}")
-            logger.debug(f"[{self.name}] Raw response that failed to parse: {response[:200]}...")
+            logger.error(f"[{self.name}] Error in search_grocery_products: {e}")
+
+            # Return minimal structure if parsing fails
             return []
 
 
@@ -260,8 +262,6 @@ class BaseAIProvider(ABC):
     #             product["match_score"] = 100 - (i * 10)  # Simple scoring
     #         return products
         
-
-    
 
     async def close(self):
         await self._client.aclose()

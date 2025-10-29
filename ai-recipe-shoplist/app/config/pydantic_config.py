@@ -124,6 +124,7 @@ class LoggingSettings(BaseSettings):
     log_debug_enabled: bool = Field(default=False, description="Enable debug mode")
     max_length: int = Field(default=500, description="Maximum length in characters (0 = no limit)")
     chat_message_max_length: int = Field(default=max_length, description="Maximum length of chat messages to log (0 = no limit)")
+    chat_message_single_line: bool = Field(default=False, description="Log chat messages in a single line")
     
     model_config = ConfigDict(env_prefix="LOG_")
 
@@ -312,8 +313,9 @@ LOG_TO_FILE = settings.logging.to_file
 LOG_FILE_PATH = settings.logging.file_path
 LOG_MAX_SIZE = settings.logging.max_size
 LOG_MAX_LENGTH = settings.logging.max_length
-LOG_CHAT_MESSAGE_MAX_LENGTH = settings.logging.chat_message_max_length
 LOG_BACKUP_COUNT = settings.logging.backup_count
+LOG_CHAT_MESSAGE_MAX_LENGTH = settings.logging.chat_message_max_length
+LOG_CHAT_MESSAGE_SINGLE_LINE = settings.logging.chat_message_single_line
 
 SERVER_HOST = settings.server.host
 SERVER_PORT = settings.server.port

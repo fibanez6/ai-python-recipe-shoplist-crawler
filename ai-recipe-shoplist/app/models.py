@@ -27,6 +27,7 @@ class QuantityUnit(str, Enum):
     ITEM = "item"
     CLOVE = "clove"
     SLICE = "slice"
+    UNIT = "unit"
     
     # Containers
     CAN = "can"
@@ -43,12 +44,12 @@ class QuantityUnit(str, Enum):
     DASH = "dash"
     TO_TASTE = "to taste"
 
-    DEFAULT = ITEM
+    DEFAULT = UNIT
 
 
 class Ingredient(BaseModel):
     """Represents a recipe ingredient with quantity and unit."""
-    name: str = Field(..., description="Name of the ingredient")
+    name: str = Field(..., description="Normalised name of the ingredient without adjectives")
     quantity: Optional[float] = Field(None, description="Amount needed")
     unit: Optional[QuantityUnit] = Field(QuantityUnit.DEFAULT, description="Unit of measurement")
     original_text: str = Field(..., description="Original ingredient text from recipe")
@@ -59,6 +60,12 @@ class Ingredient(BaseModel):
     quality: Optional[str] = Field(None, description="Quality descriptor (e.g., organic, fresh)")
     brand_preference: Optional[str] = Field(None, description="Preferred brand for the ingredient")
 
+    def __str__(self) -> str:
+        name_str = f"Name: {self.name} "
+        qty_str = f"Quantity: {self.quantity} " if self.quantity is not None else ""
+        unit_str = f"Unit: {self.unit.value} " if self.unit is not None else ""
+        brand_str = f"(Preference brand: {self.brand_preference}) " if self.brand_preference else ""
+        return f"{qty_str}{unit_str}{name_str}{brand_str}"
 
 class Recipe(BaseModel):
     """Represents a parsed recipe."""
@@ -72,6 +79,7 @@ class Recipe(BaseModel):
     instructions: List[str] = Field(default_factory=list, description="Cooking instructions")
     image_url: Optional[str] = Field(None, description="Recipe image URL")
 
+    @staticmethod
     def default() -> "Recipe":
         """Returns a default example recipe."""
         return Recipe(
@@ -85,7 +93,6 @@ class Recipe(BaseModel):
             image_url=None
         )
 
-
 class Product(BaseModel):
     """Represents a grocery store product."""
     title: str = Field(..., description="Product name")
@@ -98,6 +105,35 @@ class Product(BaseModel):
     unit_price: Optional[float] = Field(None, description="Price per unit")
     availability: bool = Field(True, description="Product availability")
 
+    @staticmethod
+    def default() -> "Product":
+        """Returns a default example product."""
+        return Product(
+            title="Example Product",
+            price=0.0,
+            store="Example Store",
+            url=None,
+            image_url=None,
+            brand=None,
+            size=None,
+            unit_price=None,
+            availability=True
+        )
+
+class ShopphingCart(BaseModel):
+    """Represents a shopping cart with products."""
+    products: List[Product] = Field(..., description="List of products in the cart")
+    total_price: float = Field(..., description="Total price of the cart")
+    store: str = Field(..., description="Store name")
+
+    @staticmethod
+    def default() -> "ShopphingCart":
+        """Returns a default example shopping cart."""
+        return ShopphingCart(
+            products=[],
+            total_price=0.0,
+            store="Example Store"
+        )
 
 class SearchStoresRequest(BaseModel):
     """Request to search stores for ingredients."""

@@ -1,17 +1,14 @@
 """Main FastAPI application for the AI Recipe Shoplist Crawler."""
 
 import json
-import logging
-import os
 from datetime import datetime
+from typing import List
 
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 # Load environment variables
@@ -40,52 +37,14 @@ from .models import APIResponse, Ingredient, QuantityUnit, Recipe, SearchStoresR
 from .services.ai_service import get_ai_service
 from .services.bill_generator import bill_generator
 from .services.price_optimizer import price_optimizer
-from .services.store_crawler import store_crawler
+from .services.grocery_service import grocery_service
 from .services.web_fetcher import get_web_fetcher
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="AI Recipe Shoplist Crawler",
-    description="AI-powered recipe ingredient crawler with grocery store price optimization",
-    version="0.1.0",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc"
-)
+from contextlib import asynccontextmanager
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Setup templates and static files
-templates_dir = os.path.join(os.path.dirname(__file__), "templates")
-static_dir = os.path.join(os.path.dirname(__file__), "static")
-
-if os.path.exists(templates_dir):
-    templates = Jinja2Templates(directory=templates_dir)
-else:
-    templates = None
-
-if os.path.exists(static_dir):
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
-# Global variables for storing session data (use Redis/DB in production)
-recipe_cache = {}
-optimization_cache = {}
-
-
-class RecipeURL(BaseModel):
-    """Model for recipe URL input."""
-    url: str
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context for FastAPI startup and shutdown events."""
     logger.info("[App] Starting AI Recipe Shoplist")
 
     logger.info("[App] Initializing Store Crawler...")
@@ -99,7 +58,32 @@ async def startup_event():
         logger.info(f"[App] Warning: AI service initialization failed: {e}")
     
     logger.info("[App] Application startup complete")
+    yield
 
+# Initialize FastAPI app with lifespan
+app = FastAPI(
+    title="AI Recipe Shoplist Crawler",
+    description="AI-powered recipe ingredient crawler with grocery store price optimization",
+    version="0.1.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure appropriately for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Startup logic moved to lifespan context manager above.
+
+class RecipeURL(BaseModel):
+    """Model for recipe URL input."""
+    url: str
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -149,16 +133,13 @@ async def process_recipe(url: str = Form(...)):
         
         # Extract recipe using AI
         recipe = await ai_service.extract_recipe_intelligently(html_content, url)
-        
-        # Cache recipe for later use
-        recipe_cache[url] = recipe
-        
+             
         logger.info(f"Extracted recipe: {recipe.title} with {len(recipe.ingredients)} ingredients")
         
         return APIResponse(
             success=True,
             data={
-                "recipe": recipe.dict(),
+                "recipe": recipe,
                 "message": f"Successfully extracted recipe: {recipe.title}",
                 "fetch_info": {
                     "from_cache": fetch_result.get("from_cache", False),
@@ -233,16 +214,19 @@ async def process_recipe_full_ai(recipe_url: str = Form(...)):
 async def search_stores(request: SearchStoresRequest):
     """Search grocery stores for ingredients."""
     try:
-        print(f"[API] Searching stores for {len(request.ingredients)} ingredients")
-        
+        logger.info(f"[API] Searching stores for {len(request.ingredients)} ingredients")
+
         # Search all stores (or specified stores)
-        store_results = await store_crawler.search_all_stores(
-            request.ingredients, 
-            request.stores
-        )
-        
-        # # Use AI to optimize product matching
-        # ai_service = get_ai_service()
+        stores = [store.lower() for store in request.stores]
+        ingredients: List[Ingredient] = request.ingredients
+
+        stores = grocery_service.get_stores(stores)
+
+        # Use AI to optimize product matching
+        ai_service = get_ai_service()
+        product_results = await ai_service.search_grocery_products_intelligently(ingredients, stores)
+
+
         # optimized_results = {}
         
         # for ingredient in request.ingredients:
@@ -264,170 +248,166 @@ async def search_stores(request: SearchStoresRequest):
         #     )
         #     optimized_results[ingredient.name] = optimized_store_results
         
-        print(f"[API] Store search completed with AI optimization")
+        logger.info(f"[API]Store search completed with AI optimization")
         
         return APIResponse(
             success=True,
             data={
-                "store_results": store_results,
+                "stores": stores,
                 # "optimized_results": optimized_results,
-                "stores_searched": list(store_results.keys())
+                "products": product_results
             },
             timestamp=datetime.now().isoformat()
         )
         
     except Exception as e:
-        print(f"[API] Error searching stores: {e}")
+        logger.info(f"[API]Error searching stores: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/api/optimize-shopping")
-async def optimize_shopping(recipe_url: str = Form(...)):
-    """Complete end-to-end optimization: recipe -> ingredients -> stores -> optimization."""
-    try:
-        logger.info(f"Starting complete optimization for: {recipe_url}")
+# @app.post("/api/optimize-shopping")
+# async def optimize_shopping(recipe_url: str = Form(...)):
+#     """Complete end-to-end optimization: recipe -> ingredients -> stores -> optimization."""
+#     try:
+#         logger.info(f"Starting complete optimization for: {recipe_url}")
         
-        # Step 1: Get or process recipe
-        if recipe_url in recipe_cache:
-            recipe = recipe_cache[recipe_url]
-            logger.info("Using cached recipe")
-        else:
-            web_fetcher = get_web_fetcher()
-            ai_service = get_ai_service()
+#         # Step 1: Get or process recipe
+#         if recipe_url in recipe_cache:
+#             recipe = recipe_cache[recipe_url]
+#             logger.info("Using cached recipe")
+#         else:
+#             web_fetcher = get_web_fetcher()
+#             ai_service = get_ai_service()
             
-            # Fetch recipe content using the web fetcher service
-            fetch_result = await web_fetcher.fetch_recipe_content(recipe_url, clean_html=True)
+#             # Fetch recipe content using the web fetcher service
+#             fetch_result = await web_fetcher.fetch_recipe_content(recipe_url, clean_html=True)
             
-            # Log fetch details
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug(f"Fetched content from cache: {fetch_result.get('from_cache', False)}")
-                logger.debug(f"Content size: {fetch_result.get('size', 0)} bytes")
-                logger.debug(f"Final URL: {fetch_result.get('url', recipe_url)}")
+#             # Log fetch details
+#             if logger.isEnabledFor(logging.DEBUG):
+#                 logger.debug(f"Fetched content from cache: {fetch_result.get('from_cache', False)}")
+#                 logger.debug(f"Content size: {fetch_result.get('size', 0)} bytes")
+#                 logger.debug(f"Final URL: {fetch_result.get('url', recipe_url)}")
             
-            # Use cleaned content for AI processing
-            html_content = fetch_result.get("cleaned_content", fetch_result["content"])
+#             # Use cleaned content for AI processing
+#             html_content = fetch_result.get("cleaned_content", fetch_result["content"])
 
-            recipe = await ai_service.extract_recipe_intelligently(html_content, recipe_url)
-            recipe_cache[recipe_url] = recipe
+#             recipe = await ai_service.extract_recipe_intelligently(html_content, recipe_url)
+#             recipe_cache[recipe_url] = recipe
         
-        if not recipe.ingredients:
-            raise HTTPException(status_code=400, detail="No ingredients found in recipe")
+#         if not recipe.ingredients:
+#             raise HTTPException(status_code=400, detail="No ingredients found in recipe")
         
-        # Step 2: Search stores
-        store_results = await store_crawler.search_all_stores(recipe.ingredients)
+#         # Step 2: Search stores
+#         store_results = await store_crawler.search_all_stores(recipe.ingredients)
         
-        # Step 3: Optimize shopping
-        optimization_result = await price_optimizer.optimize_shopping(
-            recipe.ingredients, store_results
-        )
+#         # Step 3: Optimize shopping
+#         optimization_result = await price_optimizer.optimize_shopping(
+#             recipe.ingredients, store_results
+#         )
         
-        # Cache optimization result
-        optimization_cache[recipe_url] = optimization_result
+#         # Cache optimization result
+#         optimization_cache[recipe_url] = optimization_result
         
-        logger.info(f"Optimization complete. Total cost: ${optimization_result.total_cost:.2f}")
+#         logger.info(f"Optimization complete. Total cost: ${optimization_result.total_cost:.2f}")
         
-        return APIResponse(
-            success=True,
-            data={
-                "recipe": recipe.dict(),
-                "optimization": optimization_result.dict(),
-                "summary": {
-                    "total_cost": optimization_result.total_cost,
-                    "stores_count": len(optimization_result.stores_breakdown),
-                    "items_found": len([item for item in optimization_result.items if item.selected_product]),
-                    "items_total": len(optimization_result.items),
-                    "savings": optimization_result.savings or 0
-                }
-            },
-            timestamp=datetime.now().isoformat()
-        )
+#         return APIResponse(
+#             success=True,
+#             data={
+#                 "recipe": recipe.dict(),
+#                 "optimization": optimization_result.dict(),
+#                 "summary": {
+#                     "total_cost": optimization_result.total_cost,
+#                     "stores_count": len(optimization_result.stores_breakdown),
+#                     "items_found": len([item for item in optimization_result.items if item.selected_product]),
+#                     "items_total": len(optimization_result.items),
+#                     "savings": optimization_result.savings or 0
+#                 }
+#             },
+#             timestamp=datetime.now().isoformat()
+#         )
         
-    except Exception as e:
-        logger.error(f"Error in complete optimization: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+#     except Exception as e:
+#         logger.error(f"Error in complete optimization: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
+# @app.post("/api/generate-bill")
+# async def generate_bill(recipe_url: str = Form(...), format: str = Form("pdf")):
+#     """Generate a shopping bill."""
+#     try:
+#         logger.info(f"[API]Generating {format} bill for: {recipe_url}")
+        
+#         # Get cached recipe and optimization
+#         if recipe_url not in recipe_cache:
+#             raise HTTPException(status_code=400, detail="Recipe not found. Process recipe first.")
+        
+#         if recipe_url not in optimization_cache:
+#             raise HTTPException(status_code=400, detail="Optimization not found. Run optimization first.")
+        
+#         recipe = recipe_cache[recipe_url]
+#         optimization_result = optimization_cache[recipe_url]
+        
+#         # Generate bill
+#         bill = await bill_generator.generate_bill(recipe, optimization_result, format)
+        
+#         # Get file path
+#         file_path = bill_generator.get_bill_path(bill.id, format)
+        
+#         if not file_path:
+#             raise HTTPException(status_code=500, detail="Bill generation failed")
+        
+#         return APIResponse(
+#             success=True,
+#             data={
+#                 "bill": bill.dict(),
+#                 "file_path": file_path,
+#                 "download_url": f"/api/download-bill/{bill.id}?format={format}",
+#                 "summary": await bill_generator.generate_receipt_summary(bill)
+#             },
+#             timestamp=datetime.now().isoformat()
+#         )
+        
+#     except Exception as e:
+#         logger.info(f"[API]Error generating bill: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/generate-bill")
-async def generate_bill(recipe_url: str = Form(...), format: str = Form("pdf")):
-    """Generate a shopping bill."""
-    try:
-        print(f"[API] Generating {format} bill for: {recipe_url}")
-        
-        # Get cached recipe and optimization
-        if recipe_url not in recipe_cache:
-            raise HTTPException(status_code=400, detail="Recipe not found. Process recipe first.")
-        
-        if recipe_url not in optimization_cache:
-            raise HTTPException(status_code=400, detail="Optimization not found. Run optimization first.")
-        
-        recipe = recipe_cache[recipe_url]
-        optimization_result = optimization_cache[recipe_url]
-        
-        # Generate bill
-        bill = await bill_generator.generate_bill(recipe, optimization_result, format)
-        
-        # Get file path
-        file_path = bill_generator.get_bill_path(bill.id, format)
-        
-        if not file_path:
-            raise HTTPException(status_code=500, detail="Bill generation failed")
-        
-        return APIResponse(
-            success=True,
-            data={
-                "bill": bill.dict(),
-                "file_path": file_path,
-                "download_url": f"/api/download-bill/{bill.id}?format={format}",
-                "summary": await bill_generator.generate_receipt_summary(bill)
-            },
-            timestamp=datetime.now().isoformat()
-        )
-        
-    except Exception as e:
-        print(f"[API] Error generating bill: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/download-bill/{bill_id}")
-async def download_bill(bill_id: str, format: str = "pdf"):
-    """Download a generated bill."""
-    file_path = bill_generator.get_bill_path(bill_id, format)
+# @app.get("/api/download-bill/{bill_id}")
+# async def download_bill(bill_id: str, format: str = "pdf"):
+#     """Download a generated bill."""
+#     file_path = bill_generator.get_bill_path(bill_id, format)
     
-    if not file_path or not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Bill not found")
+#     if not file_path or not os.path.exists(file_path):
+#         raise HTTPException(status_code=404, detail="Bill not found")
     
-    filename = f"shopping_bill_{bill_id}.{format}"
+#     filename = f"shopping_bill_{bill_id}.{format}"
     
-    return FileResponse(
-        path=file_path,
-        filename=filename,
-        media_type="application/octet-stream"
-    )
+#     return FileResponse(
+#         path=file_path,
+#         filename=filename,
+#         media_type="application/octet-stream"
+#     )
 
-
-@app.get("/api/suggest-alternatives/{ingredient_name}")
-async def suggest_alternatives(ingredient_name: str):
-    """Get AI-suggested alternatives for an ingredient."""
-    try:
-        ai_service = get_ai_service()
+# @app.get("/api/suggest-alternatives/{ingredient_name}")
+# async def suggest_alternatives(ingredient_name: str):
+#     """Get AI-suggested alternatives for an ingredient."""
+#     try:
+#         ai_service = get_ai_service()
         
-        # Create a temporary ingredient object
-        ingredient = Ingredient(name=ingredient_name, original_text=ingredient_name)
+#         # Create a temporary ingredient object
+#         ingredient = Ingredient(name=ingredient_name, original_text=ingredient_name)
         
-        alternatives = await ai_service.suggest_alternatives(ingredient)
+#         alternatives = await ai_service.suggest_alternatives(ingredient)
         
-        return APIResponse(
-            success=True,
-            data={
-                "ingredient": ingredient_name,
-                "alternatives": alternatives
-            },
-            timestamp=datetime.now().isoformat()
-        )
+#         return APIResponse(
+#             success=True,
+#             data={
+#                 "ingredient": ingredient_name,
+#                 "alternatives": alternatives
+#             },
+#             timestamp=datetime.now().isoformat()
+#         )
         
-    except Exception as e:
-        print(f"[API] Error suggesting alternatives: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+#     except Exception as e:
+#         logger.info(f"[API]Error suggesting alternatives: {e}")
+#         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/fetcher")
 async def get_fetcher_content(recipe_url: str = Form(...)):
@@ -488,7 +468,6 @@ async def clear_content_files():
         timestamp=datetime.now().isoformat()
     )
 
-
 @app.get("/api/stores")
 async def get_available_stores():
     """Get list of available grocery stores with detailed information."""
@@ -505,7 +484,6 @@ async def get_available_stores():
         },
         timestamp=datetime.now().isoformat()
     )
-
 
 @app.get("/api/stores/{store_id}")
 async def get_store_details(store_id: str):
@@ -526,7 +504,6 @@ async def get_store_details(store_id: str):
         },
         timestamp=datetime.now().isoformat()
     )
-
 
 @app.get("/api/demo")
 async def demo_recipe():
@@ -568,7 +545,6 @@ async def demo_recipe():
         },
         timestamp=datetime.now().isoformat()
     )
-
 
 if __name__ == "__main__":
     port = SERVER_PORT

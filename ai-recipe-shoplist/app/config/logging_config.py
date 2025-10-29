@@ -77,7 +77,7 @@ def setup_logging(
     # Create rich handler with custom JSON formatter
     rich_handler = RichHandler(console=console, show_time=True, show_level=True, markup=True)
     rich_handler.setLevel(numeric_level)
-    rich_handler.setFormatter(RichJSONFormatter())
+    rich_handler.setFormatter(RichJSONFormatter(format_string))
     
     # Add handler to root logger
     root_logger.addHandler(rich_handler)
@@ -120,6 +120,7 @@ def setup_logging(
         {
             "event": "logging_configured",
             "level": logging.getLevelName(numeric_level),
+            "handlers": [type(h).__name__ for h in root_logger.handlers],
             "debug": LOG_DEBUG_ENABLED,
             "file_logging": enable_file_logging,
             "log_file": log_file if enable_file_logging else None,
