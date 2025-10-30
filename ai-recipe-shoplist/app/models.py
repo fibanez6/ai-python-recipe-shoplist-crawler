@@ -1,8 +1,9 @@
 """Data models for the recipe shoplist application."""
 
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Any, Optional
+
+from pydantic import BaseModel, Field
 
 
 class QuantityUnit(str, Enum):
@@ -26,38 +27,72 @@ class QuantityUnit(str, Enum):
     ITEM = "item"
     CLOVE = "clove"
     SLICE = "slice"
+    UNIT = "unit"
+    
+    # Containers
+    CAN = "can"
+    JAR = "jar"
+    BOTTLE = "bottle"
+    PACKAGE = "package"
+    PACK = "pack"
+    BAG = "bag"
+    BOX = "box"
+    CONTAINER = "container"
     
     # Special
     PINCH = "pinch"
     DASH = "dash"
     TO_TASTE = "to taste"
 
+    DEFAULT = UNIT
+
 
 class Ingredient(BaseModel):
     """Represents a recipe ingredient with quantity and unit."""
-    name: str = Field(..., description="Name of the ingredient")
+    name: str = Field(..., description="Normalised name of the ingredient without adjectives")
     quantity: Optional[float] = Field(None, description="Amount needed")
-    unit: Optional[QuantityUnit] = Field(None, description="Unit of measurement")
+    unit: Optional[QuantityUnit] = Field(QuantityUnit.DEFAULT, description="Unit of measurement")
     original_text: str = Field(..., description="Original ingredient text from recipe")
     optional: bool = Field(False, description="Whether ingredient is optional")
+    category: Optional[str] = Field(None, description="Ingredient category (e.g., dairy, produce)")
+    alternatives: Optional[list[str]] = Field(None, description="List of alternative ingredient names")
+    notes: Optional[str] = Field(None, description="Additional short note about the ingredient")
+    quality: Optional[str] = Field(None, description="Quality descriptor (e.g., organic, fresh)")
+    brand_preference: Optional[str] = Field(None, description="Preferred brand for the ingredient")
 
+    def __str__(self) -> str:
+        name_str = f"Name: {self.name} "
+        qty_str = f"Quantity: {self.quantity} " if self.quantity is not None else ""
+        unit_str = f"Unit: {self.unit.value} " if self.unit is not None else ""
+        brand_str = f"(Preference brand: {self.brand_preference}) " if self.brand_preference else ""
+        return f"{qty_str}{unit_str}{name_str}{brand_str}"
 
 class Recipe(BaseModel):
     """Represents a parsed recipe."""
     title: str = Field(..., description="Recipe title")
     url: str = Field(..., description="Source URL")
-    description: Optional[str] = Field(None, description="Recipe description")
+    description: Optional[str] = Field(None, description="Recipe brief description")
     servings: Optional[int] = Field(None, description="Number of servings")
     prep_time: Optional[str] = Field(None, description="Preparation time")
     cook_time: Optional[str] = Field(None, description="Cooking time")
-    ingredients: List[Ingredient] = Field(..., description="List of ingredients")
-    instructions: List[str] = Field(default_factory=list, description="Cooking instructions")
+    ingredients: list[Ingredient] = Field(..., description="List of ingredients")
+    instructions: list[str] = Field(default_factory=list, description="Cooking instructions")
     image_url: Optional[str] = Field(None, description="Recipe image URL")
 
+    @staticmethod
+    def default() -> "Recipe":
+        """Returns a default example recipe."""
+        return Recipe(
+            title="Recipe Title",
+            url="http://example.com/recipe",
+            ingredients=[],
+            instructions=[]
+        )
 
 class Product(BaseModel):
     """Represents a grocery store product."""
-    title: str = Field(..., description="Product name")
+    title: str = Field(..., description="Full product name from the store")
+    ingredient: str = Field(..., description="Associated ingredient name")
     price: float = Field(..., description="Product price")
     store: str = Field(..., description="Store name")
     url: Optional[str] = Field(None, description="Product URL")
@@ -65,14 +100,43 @@ class Product(BaseModel):
     brand: Optional[str] = Field(None, description="Product brand")
     size: Optional[str] = Field(None, description="Product size/weight")
     unit_price: Optional[float] = Field(None, description="Price per unit")
-    availability: bool = Field(True, description="Product availability")
+    availability: Optional[bool] = Field(True, description="Product availability")
 
+    @staticmethod
+    def default() -> "Product":
+        """Returns a default example product."""
+        return Product(
+            title="Example Product",
+            ingredient="Example Ingredient",
+            price=0.0,
+            store="Example Store"
+        )
+
+class ShopphingCart(BaseModel):
+    """Represents a shopping cart with products."""
+    products: list[Product] = Field(..., description="List of products in the cart")
+    total_price: float = Field(..., description="Total price of the cart")
+    store: str = Field(..., description="Store name")
+
+    @staticmethod
+    def default() -> "ShopphingCart":
+        """Returns a default example shopping cart."""
+        return ShopphingCart(
+            products=[],
+            total_price=0.0,
+            store="Example Store"
+        )
+
+class SearchStoresRequest(BaseModel):
+    """Request to search stores for ingredients."""
+    ingredients: list[Ingredient] = Field(..., description="Ingredients to search")
+    stores: Optional[list[str]] = Field(None, description="Specific stores to search")
 
 class StoreSearchResult(BaseModel):
     """Result from searching a store for an ingredient."""
     ingredient_name: str = Field(..., description="Searched ingredient name")
     store_name: str = Field(..., description="Store that was searched")
-    products: List[Product] = Field(default_factory=list, description="Found products")
+    products: list[Product] = Field(default_factory=list, description="Found products")
     search_time: Optional[float] = Field(None, description="Search duration in seconds")
 
 
@@ -82,13 +146,14 @@ class ShoppingListItem(BaseModel):
     selected_product: Optional[Product] = Field(None, description="Selected product")
     quantity_needed: float = Field(..., description="Quantity needed for recipe")
     estimated_cost: Optional[float] = Field(None, description="Estimated cost")
+    store_options: Optional[dict[str, Product]] = Field(None, description="Available products from different stores")
 
 
 class OptimizationResult(BaseModel):
     """Result of price optimization across stores."""
-    items: List[ShoppingListItem] = Field(..., description="Optimized shopping list")
+    items: list[ShoppingListItem] = Field(..., description="Optimized shopping list")
     total_cost: float = Field(..., description="Total estimated cost")
-    stores_breakdown: Dict[str, float] = Field(..., description="Cost per store")
+    stores_breakdown: dict[str, float] = Field(..., description="Cost per store")
     savings: Optional[float] = Field(None, description="Savings vs. single store")
 
 
@@ -97,25 +162,19 @@ class Bill(BaseModel):
     id: str = Field(..., description="Unique bill identifier")
     recipe_title: str = Field(..., description="Recipe name")
     generated_at: str = Field(..., description="Generation timestamp")
-    items: List[ShoppingListItem] = Field(..., description="Bill items")
+    items: list[ShoppingListItem] = Field(..., description="Bill items")
     subtotal: float = Field(..., description="Subtotal before tax")
     tax_rate: float = Field(0.1, description="Tax rate")
     tax_amount: float = Field(..., description="Tax amount")
     total: float = Field(..., description="Total amount")
-    stores: List[str] = Field(..., description="Stores to visit")
-    stores_breakdown: Optional[Dict[str, float]] = Field(None, description="Cost breakdown by store")
+    stores: list[str] = Field(..., description="Stores to visit")
+    stores_breakdown: Optional[dict[str, float]] = Field(None, description="Cost breakdown by store")
 
 
 class ProcessRecipeRequest(BaseModel):
     """Request to process a recipe URL."""
     url: str = Field(..., description="Recipe URL to process")
     servings_adjustment: Optional[int] = Field(None, description="Adjust servings")
-
-
-class SearchStoresRequest(BaseModel):
-    """Request to search stores for ingredients."""
-    ingredients: List[Ingredient] = Field(..., description="Ingredients to search")
-    stores: Optional[List[str]] = Field(None, description="Specific stores to search")
 
 
 class GenerateBillRequest(BaseModel):

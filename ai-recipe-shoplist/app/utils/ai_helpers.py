@@ -3,8 +3,16 @@ AI utility functions for response processing and data handling.
 """
 
 import json
+import logging
 import re
-from typing import Any, Dict, List, Union
+from typing import Any, Union
+
+from ..config.pydantic_config import LOG_SETTINGS
+from ..services.tokenizer_service import TokenizerService  # Import TokenizerService
+from ..utils.str_helpers import count_chars, count_lines, count_words
+
+# Get module logger
+logger = logging.getLogger(__name__)
 
 
 def clean_json_response(response: str) -> str:
@@ -66,13 +74,30 @@ def safe_json_parse(response: str, fallback: Any = None) -> Any:
         Parsed JSON object or fallback value
     """
     try:
+        # Check if response looks like an error message
+        if not response or isinstance(response, str) and (
+            response.startswith(("Internal", "Error", "HTTP", "500", "429", "503")) or
+            "error" in response.lower() or
+            "exception" in response.lower() or
+            len(response.strip()) < 2
+        ):
+            logger.warning(f"AI response appears to be an error: {response[:100]}...")
+            return fallback
+            
         cleaned_response = clean_json_response(response)
+        
+        # Double-check that we have something that looks like JSON
+        if not cleaned_response or not cleaned_response.strip().startswith(('{', '[')):
+            logger.warning(f"Response doesn't appear to be JSON: {cleaned_response[:100]}...")
+            return fallback
+            
         return json.loads(cleaned_response)
-    except (json.JSONDecodeError, ValueError, TypeError):
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        logger.warning(f"JSON parsing failed: {e}. Response: {response[:200]}...")
         return fallback
 
 
-def extract_json_from_text(text: str) -> Union[Dict, List, None]:
+def extract_json_from_text(text: str) -> Union[dict, list, None]:
     """
     Extract the first valid JSON object or array from text.
     
@@ -131,82 +156,6 @@ def normalize_ai_response(response: str, expected_type: str = "auto") -> Any:
     # Return None if nothing worked
     return None
 
-
-def validate_ingredient_data(data: List[Dict]) -> List[Dict]:
-    """
-    Validate and clean ingredient data from AI response.
-    
-    Args:
-        data: List of ingredient dictionaries
-        
-    Returns:
-        Validated and cleaned ingredient list
-    """
-    if not isinstance(data, list):
-        return []
-    
-    validated = []
-    for item in data:
-        if not isinstance(item, dict):
-            continue
-        
-        # Ensure required fields exist
-        ingredient = {
-            "name": str(item.get("name", "")).strip(),
-            "quantity": item.get("quantity"),
-            "unit": item.get("unit"),
-            "original_text": str(item.get("original_text", "")).strip()
-        }
-        
-        # Only add if name is not empty
-        if ingredient["name"]:
-            validated.append(ingredient)
-    
-    return validated
-
-
-def validate_recipe_data(data: Dict) -> Dict:
-    """
-    Validate and clean recipe data from AI response.
-    
-    Args:
-        data: Recipe dictionary
-        
-    Returns:
-        Validated and cleaned recipe data
-    """
-    if not isinstance(data, dict):
-        return {}
-    
-    # Set defaults for required fields
-    recipe = {
-        "title": str(data.get("title", "Unknown Recipe")).strip(),
-        "description": str(data.get("description", "")).strip(),
-        "servings": data.get("servings"),
-        "prep_time": data.get("prep_time"),
-        "cook_time": data.get("cook_time"),
-        "ingredients": data.get("ingredients", []),
-        "instructions": data.get("instructions", []),
-        "image_url": data.get("image_url")
-    }
-    
-    # Validate servings as number
-    if recipe["servings"] is not None:
-        try:
-            recipe["servings"] = int(recipe["servings"])
-        except (ValueError, TypeError):
-            recipe["servings"] = None
-    
-    # Ensure ingredients and instructions are lists
-    if not isinstance(recipe["ingredients"], list):
-        recipe["ingredients"] = []
-    
-    if not isinstance(recipe["instructions"], list):
-        recipe["instructions"] = []
-    
-    return recipe
-
-
 def format_ai_prompt(template: str, **kwargs) -> str:
     """
     Format AI prompt template with parameters.
@@ -223,39 +172,104 @@ def format_ai_prompt(template: str, **kwargs) -> str:
     except KeyError as e:
         raise ValueError(f"Missing required template parameter: {e}")
 
+def log_ai_token_stats(provider_name: str, text: str, tokenizer: TokenizerService, logger: logging.Logger, level: int = logging.DEBUG) -> None:
+    """
+    Log AI token usage statistics.
+    
+    Args:
+        provider_name: Name of the AI provider
+        token_stats: Dictionary with token statistics
+        logger: Logger instance
+        level: Logging level (e.g., logging.INFO)
+    """
+    if logger.isEnabledFor(level):
+        stats = {
+            "chars": count_chars(text),
+            "words": count_words(text),
+            "lines": count_lines(text),
+            "tokens": tokenizer.count_tokens(text)
+        }
+        logger.log(level, f"[{provider_name}] Content stats: {stats}")
+
+def log_ai_chat_query(provider_name: str, chat_params: list[dict[str, str]], logger: logging.Logger, level: int = logging.DEBUG) -> None:
+    """
+    Log AI chat parameters statistics.
+    
+    Args:
+        provider_name: Name of the AI provider
+        messages: List of chat messages
+        logger: Logger instance
+        level: Logging level (e.g., logging.INFO)
+    """
+    if logger.isEnabledFor(level):
+        # Log chat parameters except messages
+        params_copy = {k: v for k, v in chat_params.items() if k != 'messages'}
+        if params_copy:
+            logger.debug(f"[{provider_name}] API call - chat params: {params_copy}")
+
+        # Log each message
+        for i, msg in enumerate(chat_params.get('messages', [])):
+            max_length = LOG_SETTINGS.chat_message_max_length
+            if max_length == 0:
+                content = msg.get('content', '')
+            else:
+                content = msg.get('content', '')[:max_length] + '...' if len(msg.get('content', '')) > max_length else msg.get('content', '')
+
+            if LOG_SETTINGS.chat_message_single_line:
+                content = content.replace(chr(10), ' ')  # replace newlines with spaces for single line logging
+
+            logger.debug(f"[{provider_name}] Message {i+1} ({msg.get('role', 'unknown')}): \n\"\"\"\n{content}\n\"\"\"")
+
+def log_ai_chat_response(provider_name: str, response: str, logger: logging.Logger, level: int = logging.DEBUG) -> None:
+    """
+    Log AI response at specified log level.
+    
+    Args:
+        response: AI response string
+        provider_name: Name of the AI provider
+        logger: Logger instance
+        level: Logging level (e.g., logging.DEBUG)
+    """
+    usage = response.usage
+    stats = {
+            "Prompt tokens:": usage.prompt_tokens,
+            "Completion tokens:": usage.completion_tokens,
+            "Total tokens:": usage.total_tokens
+        }
+
+    logger.info(f"[{provider_name}] OpenAI API call stats: {stats} ")
+
+    if logger.isEnabledFor(level):
+        try:
+            message = response.choices[0].message
+            if hasattr(message, 'refusal') and message.refusal:
+                logger.log(level, f"[{provider_name}] AI Response refused: {message.refusal}")
+                return
+            elif hasattr(message, 'parsed') and message.parsed:
+                logger.log(level, f"[{provider_name}] AI Response parsed: {message.parsed}")
+                return
+            else:
+                content = message.content if hasattr(message, 'content') else message
+                max_length = LOG_SETTINGS.chat_message_max_length
+                if  max_length > 0:
+                    content = content[:max_length] + ('...' if len(content) > max_length else '')
+                
+                logger.log(level, f"[{provider_name}] AI Response:\n\"\"\"\n{content}\n\"\"\"")
+        except Exception as e:
+            logger.error(f"[{provider_name}] Error logging AI response: {e}")
+
+    if LOG_SETTINGS.chat_full_responses:
+        try:
+            logger.log(level, f"[{provider_name}] Full AI Response:\n\"\"\"\n{response}\n\"\"\"")
+        except Exception as e:
+            logger.error(f"[{provider_name}] Error logging full AI response: {e}")
+
+
 
 # Common prompt templates
-RECIPE_EXTRACTION_PROMPT = """
-Extract recipe information from this HTML content and return as JSON:
 
-Required fields:
-- title: recipe name
-- description: brief description
-- servings: number of servings (integer or null)
-- prep_time: preparation time (string or null)
-- cook_time: cooking time (string or null)
-- ingredients: array of ingredient strings
-- instructions: array of instruction steps
-- image_url: main recipe image URL (or null)
 
-HTML content:
-{html_content}
-
-Return only valid JSON, no additional text.
-"""
-
-INGREDIENT_NORMALIZATION_PROMPT = """
-Parse these ingredient texts into structured data. For each ingredient, extract:
-- name: clean ingredient name (e.g., "flour", "chicken breast")
-- quantity: numeric amount (float or null)
-- unit: measurement unit (e.g., "cup", "tbsp", "kg", "g", "lb") or null
-- original_text: the original input text
-
-Ingredients:
-{ingredients_json}
-
-Return as JSON array with objects for each ingredient.
-"""
+PRODUCT_MATCHING_SYSTEM = "You are a grocery shopping expert. Rank products by relevance and quality."
 
 PRODUCT_MATCHING_PROMPT = """
 Rank these grocery products by how well they match the ingredient "{ingredient}".
@@ -282,4 +296,18 @@ Consider:
 - Dietary restrictions (if any)
 
 Return as a JSON array of strings, no additional text.
+"""
+
+RECIPE_SHOPPING_ASSISTANT_SYSTEM =  """
+Simulate real-world shopping assistant. that does the following steps:
+- Reads recipes online — extracts the list of ingredients and quantities
+- Creates a unified shopping list — merging duplicate ingredients and standardizing units.
+- Searches Coles, Woolworths and Aldi (Australia's three main grocery chains) to:
+-- Find each ingredient, with quantity and unit.
+-- Maximize savings by finding the best prices for each ingredient.
+-- Suggest the best store (or a mixed basket for cheapest total).
+"""
+
+RECIPE_SHOPPING_ASSISTANT_PROMPT = """
+Given me a recipe URL "{url}", extract ingredients and find current prices from Coles and Woolworths (using real web data).
 """

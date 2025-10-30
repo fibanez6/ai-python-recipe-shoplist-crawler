@@ -1,0 +1,31 @@
+{
+  "ingredients": [
+    {
+      "name": "tomato",
+      "quantity": 4,
+      "unit": "piece",
+      "original_text": "4 large fresh tomatoes, peeled and diced",
+      "optional": false,
+      "category": "vegetable",
+      "alternatives": null,
+      "notes": "peeled and diced",
+      "quality": "fresh",
+      "brand_preference": null
+    },
+    {
+      "name": "cucumber",
+      "quantity": 0.5,
+      "unit": "item",
+      "original_text": "½ English cucumber, peeled and finely diced",
+      "optional": false,
+      "category": "produce",
+      "alternatives": null,
+      "notes": "peeled and finely diced",
+      "quality": null,
+      "brand_preference": null
+    }
+  ],
+  "stores": [
+    "Aldi"
+  ]
+}

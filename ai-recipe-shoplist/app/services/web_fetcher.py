@@ -1,13 +1,16 @@
 """Web content fetcher service for downloading recipe pages and other web content."""
 
-import logging
-import os
 import time
-from typing import Optional, Dict, Any
-import httpx
-from bs4 import BeautifulSoup
+from pathlib import Path
+from typing import Any
 
-from ..utils.logging_config import get_logger, log_api_request, log_function_call
+import httpx
+
+from ..config.logging_config import get_logger, log_api_request, log_function_call
+from ..config.pydantic_config import FETCHER_SETTINGS
+from ..utils.html_helpers import clean_html_for_ai
+from .cache_manager import CacheManager
+from .content_storage import ContentStorage
 
 logger = get_logger(__name__)
 
@@ -16,46 +19,49 @@ class WebFetcher:
     """Service for fetching web content with caching and error handling."""
     
     def __init__(self):
-        self.timeout = int(os.getenv("FETCHER_TIMEOUT", "30"))
-        self.max_content_size = int(os.getenv("FETCHER_MAX_SIZE", "10485760"))  # 10MB
-        self.user_agent = os.getenv("FETCHER_USER_AGENT", 
-            "Mozilla/5.0 (compatible; AI-Recipe-Crawler/1.0; +https://github.com/your-repo)")
+        self.name = "WebFetcher"
+        self.timeout = FETCHER_SETTINGS.timeout
+        self.max_content_size = FETCHER_SETTINGS.max_size
+        self.user_agent = FETCHER_SETTINGS.user_agent
+
+        # Cache TTL configuration
+        cache_ttl = FETCHER_SETTINGS.cache_ttl
+
+        # Setup tmp folder for file-based caching
+        self.tmp_folder = Path(FETCHER_SETTINGS.tmp_folder)
+
+        # Initialize cache manager and content storage
+        self.cache_manager = CacheManager(cache_ttl)
+        self.content_storage = ContentStorage(self.tmp_folder)
         
-        # Simple in-memory cache (use Redis in production)
-        self._cache = {}
-        self.cache_ttl = int(os.getenv("FETCHER_CACHE_TTL", "3600"))  # 1 hour
-        
-        logger.info(f"WebFetcher initialized - Timeout: {self.timeout}s, Max size: {self.max_content_size} bytes")
+        logger.info(f"[{self.name}] initialized - Timeout: {self.timeout}s, Max size: {self.max_content_size} bytes")
+        logger.info(f"[{self.name}] tmp folder: {self.tmp_folder}")
     
-    async def fetch_url(self, url: str, use_cache: bool = True) -> Dict[str, Any]:
+    async def fetch_url(self, url: str, use_cache: bool = True) -> dict[str, Any]:
         """
-        Fetch content from a URL with caching and error handling.
-        
+        Fetch content from a URL with optional caching and robust error handling.
+
         Args:
-            url: URL to fetch
-            use_cache: Whether to use cached content if available
-            
+            url (str): The URL to fetch.
+            use_cache (bool): Whether to use cached content if available.
+
         Returns:
-            Dict containing:
-                - content: HTML content
-                - url: Final URL (after redirects)
-                - status_code: HTTP status code
-                - headers: Response headers
-                - from_cache: Whether content was served from cache
+            dict[str, Any]: Dictionary with:
+            - content (str): HTML content.
+            - url (str): Final URL after redirects.
+            - status_code (int): HTTP status code.
+            - headers (dict): Response headers.
+            - timestamp (float): Fetch timestamp.
+            - from_cache (bool): True if served from in-memory cache.
+            - from_file_cache (bool): True if served from file cache.
+            - size (int): Size of the content in bytes.
         """
         log_function_call("WebFetcher.fetch_url", {"url": url, "use_cache": use_cache})
         
-        # Check cache first
-        if use_cache and url in self._cache:
-            cache_entry = self._cache[url]
-            if time.time() - cache_entry["timestamp"] < self.cache_ttl:
-                logger.debug(f"[WebFetcher] Serving cached content for {url}")
-                cache_entry["from_cache"] = True
-                return cache_entry
-            else:
-                # Cache expired
-                del self._cache[url]
-                logger.debug(f"Cache expired for {url}")
+        # Check cache using cache manager
+        cached_result = self.cache_manager.get_cached_content(url, use_cache)
+        if cached_result:
+            return cached_result
         
         start_time = time.time()
         
@@ -66,14 +72,14 @@ class WebFetcher:
                 headers={"User-Agent": self.user_agent}
             ) as client:
 
-                logger.debug(f"[WebFetcher] Fetching URL: {url}")
+                logger.info(f"[{self.name}] Fetching URL: {url}")
                 response = await client.get(url)
                 response.raise_for_status()
                 
                 # Check content size
                 content_length = len(response.content)
                 if content_length > self.max_content_size:
-                    raise ValueError(f"[WebFetcher] Content too large: {content_length} bytes (max: {self.max_content_size})")
+                    raise ValueError(f"[{self.name}] Content too large: {content_length} bytes (max: {self.max_content_size})")
                 
                 duration = time.time() - start_time
                 
@@ -90,111 +96,73 @@ class WebFetcher:
                     "size": content_length
                 }
                 
-                # Cache the result
-                if use_cache:
-                    self._cache[url] = result.copy()
-                    logger.debug(f"[WebFetcher] Cached content for {url} ({content_length} bytes)")
+                # Cache the result using cache manager
+                self.cache_manager.save_fetch_content(url, result, use_cache)
                 
-                logger.info(f"[WebFetcher] Successfully fetched {url} - {content_length} bytes in {duration:.2f}s")
+                logger.info(f"[{self.name}] Successfully fetched {url} - {content_length} bytes in {duration:.2f}s")
                 return result
-                
+              
         except httpx.TimeoutException:
             duration = time.time() - start_time
             log_api_request("WebFetcher", url, 0, duration, False)
-            logger.error(f"[WebFetcher] Timeout fetching {url} after {duration:.2f}s")
+            logger.error(f"[{self.name}] Timeout fetching {url} after {duration:.2f}s")
             raise
         except httpx.HTTPStatusError as e:
             duration = time.time() - start_time
             log_api_request("WebFetcher", url, 0, duration, False)
-            logger.error(f"[WebFetcher] HTTP error fetching {url}: {e.response.status_code}")
+            logger.error(f"[{self.name}] HTTP error fetching {url}: {e.response.status_code}")
             raise
         except Exception as e:
             duration = time.time() - start_time
             log_api_request("WebFetcher", url, 0, duration, False)
-            logger.error(f"[WebFetcher] Error fetching {url}: {e}")
+            logger.error(f"[{self.name}] Error fetching {url}: {e}")
             raise
-    
-    async def fetch_recipe_content(self, url: str, clean_html: bool = True) -> Dict[str, Any]:
+
+    async def fetch_html_content(self, url: str, html_selectors: dict[str, str] = {}, clean_html: bool = True, use_cache: bool = True) -> dict[str, Any]:
         """
-        Fetch and optionally clean HTML content for recipe processing.
-        
+        Fetch HTML content from a URL, optionally clean it, and apply HTML selectors.
+
         Args:
-            url: Recipe URL to fetch
-            clean_html: Whether to clean HTML content for AI processing
-            
+            url (str): The URL to fetch HTML content from.
+            html_selectors (dict[str, str], optional): CSS selectors for extracting specific HTML parts.
+            clean_html (bool): Whether to clean the HTML content for AI use.
+            use_cache (bool): Whether to use cached content if available.
+
         Returns:
-            Dict containing fetched content and metadata
+            dict[str, Any]: Dictionary with:
+            - content (str): Raw HTML content.
+            - cleaned_content (str, optional): Cleaned HTML content if requested.
+            - saved_files (dict, optional): Paths to saved files if content was saved.
         """
-        log_function_call("WebFetcher.fetch_recipe_content", {"url": url, "clean_html": clean_html})
+
+        log_function_call("WebFetcher.fetch_html_content", {
+            "url": url,
+            "html_selectors": html_selectors,
+            "clean_html": clean_html,
+            "use_cache": use_cache
+        })
         
-        result = await self.fetch_url(url)
+        # Load from storage
+        content = self.content_storage.load_html_content(url)
+        if content:
+            logger.info(f"[{self.name}] Using content from disk for {url}")
         
-        if clean_html:
-            result["cleaned_content"] = self._clean_html_for_ai(result["content"])
-            logger.debug(f"[WebFetcher] Cleaned HTML content: {len(result['content'])} -> {len(result['cleaned_content'])} chars")
+        # Fetch from web if not loaded from disk
+        if "content" not in content:
+            content = await self.fetch_url(url, use_cache)
 
-        if logger.isEnabledFor(logging.INFO):
-            logger.info(f"[WebFetcher] Fetched recipe content: {result}")
+        # Clean HTML if requested
+        if clean_html and "cleaned_content" not in content:
+            content["cleaned_content"] = clean_html_for_ai(content["content"], html_selectors)
+            logger.debug(f"[{self.name}] Generated cleaned HTML content: {len(content['content'])} -> {len(content['cleaned_content'])} chars")
 
-        return result
-    
-    def _clean_html_for_ai(self, html_content: str, max_length: int = 8000) -> str:
-        """
-        Clean HTML content for AI processing by removing unnecessary elements.
-        
-        Args:
-            html_content: Raw HTML content
-            max_length: Maximum length of cleaned content
-            
-        Returns:
-            Cleaned HTML content
-        """
-        try:
-            soup = BeautifulSoup(html_content, 'html.parser')
-            
-            # Remove script and style elements
-            for element in soup(["script", "style", "nav", "header", "footer", "aside"]):
-                element.decompose()
-            
-            # Remove comments
-            from bs4 import Comment
-            for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
-                comment.extract()
-            
-            # Remove empty elements
-            for element in soup.find_all():
-                if not element.get_text(strip=True) and not element.find_all():
-                    element.decompose()
-            
-            # Get cleaned text
-            cleaned = str(soup)
-            
-            # Truncate if too long
-            if len(cleaned) > max_length:
-                cleaned = cleaned[:max_length]
-                logger.debug(f"[WebFetcher] Truncated HTML content to {max_length} characters")
-            
-            return cleaned
-            
-        except Exception as e:
-            logger.warning(f"[WebFetcher] Error cleaning HTML: {e}, returning truncated original")
-            return html_content[:max_length]
-    
-    def clear_cache(self) -> None:
-        """Clear the content cache."""
-        cache_size = len(self._cache)
-        self._cache.clear()
-        logger.info(f"[WebFetcher] Cleared fetcher cache ({cache_size} entries)")
+        # Save content to storage and cache
+        self.cache_manager.save_fetch_content(url, content, use_cache)
+        saved_files = self.content_storage.save_fetch_content(url, content)
+        if saved_files:
+            content["saved_files"] = saved_files
 
-    def get_cache_stats(self) -> Dict[str, Any]:
-        """Get cache statistics."""
-        return {
-            "entries": len(self._cache),
-            "urls": list(self._cache.keys()),
-            "total_size": sum(entry.get("size", 0) for entry in self._cache.values()),
-            "ttl_seconds": self.cache_ttl
-        }
-
+        return content
 
 # Global fetcher instance
 _fetcher_instance = None

@@ -1,0 +1,87 @@
+{
+  "input": {
+    "recipe_text": "Spaghetti Carbonara\n\nIngredients:\n- 400g spaghetti\n- 200g pancetta or guanciale\n- 3 large eggs\n- 100g pecorino romano cheese, grated\n- Black pepper\n- Salt\n\nInstructions:\n1. Cook spaghetti in salted boiling water until al dente\n2. While pasta cooks, fry pancetta until crispy\n3. Beat eggs with cheese and pepper\n4. Drain pasta, reserve pasta water\n5. Mix hot pasta with pancetta, then with egg mixture\n6. Add pasta water as needed for creaminess\n7. Serve immediately with extra cheese",
+    "prompt_type": "recipe_analysis"
+  },
+  "output": {
+    "recipe_name": "Spaghetti Carbonara",
+    "servings": 4,
+    "ingredients": [
+      {
+        "name": "spaghetti",
+        "amount": 400,
+        "unit": "g",
+        "category": "pasta",
+        "brand_preference": "any",
+        "notes": "long pasta, al dente cooking"
+      },
+      {
+        "name": "pancetta",
+        "amount": 200,
+        "unit": "g",
+        "category": "meat",
+        "alternatives": ["guanciale", "bacon"],
+        "notes": "diced, for crispy texture"
+      },
+      {
+        "name": "eggs",
+        "amount": 3,
+        "unit": "large",
+        "category": "dairy",
+        "quality": "free-range preferred",
+        "notes": "room temperature for best mixing"
+      },
+      {
+        "name": "pecorino romano cheese",
+        "amount": 100,
+        "unit": "g",
+        "category": "dairy",
+        "form": "grated",
+        "alternatives": ["parmesan"],
+        "notes": "freshly grated preferred"
+      },
+      {
+        "name": "black pepper",
+        "amount": "to taste",
+        "unit": "amount",
+        "category": "spices",
+        "quality": "freshly ground",
+        "notes": "key flavor component"
+      },
+      {
+        "name": "salt",
+        "amount": "to taste",
+        "unit": "amount",
+        "category": "seasonings",
+        "usage": "pasta water",
+        "notes": "for pasta cooking water"
+      }
+    ],
+    "estimated_cost": {
+      "total": 12.50,
+      "per_serving": 3.13,
+      "currency": "USD"
+    },
+    "dietary_info": {
+      "vegetarian": false,
+      "vegan": false,
+      "gluten_free": false,
+      "dairy_free": false,
+      "allergens": ["gluten", "eggs", "dairy"]
+    },
+    "cooking_info": {
+      "prep_time": "10 minutes",
+      "cook_time": "15 minutes",
+      "total_time": "25 minutes",
+      "difficulty": "medium",
+      "cuisine": "Italian"
+    }
+  },
+  "metadata": {
+    "response_type": "recipe_analysis",
+    "created_date": "2024-10-19",
+    "model_used": "mock",
+    "processing_time": "0.1s",
+    "tokens_used": 0
+  }
+}

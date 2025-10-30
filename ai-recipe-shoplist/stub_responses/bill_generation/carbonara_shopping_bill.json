@@ -1,0 +1,123 @@
+{
+  "input": {
+    "shopping_plan": {
+      "recipe_name": "Spaghetti Carbonara",
+      "stores": ["Whole Foods Market", "Safeway"],
+      "total_cost": 13.34,
+      "items": [
+        {"name": "pancetta", "store": "Whole Foods Market", "price": 4.99},
+        {"name": "pecorino romano cheese", "store": "Whole Foods Market", "price": 3.49},
+        {"name": "eggs", "store": "Whole Foods Market", "price": 2.99},
+        {"name": "spaghetti", "store": "Safeway", "price": 1.00}
+      ]
+    },
+    "prompt_type": "bill_generation"
+  },
+  "output": {
+    "shopping_bill": {
+      "header": {
+        "title": "Smart Recipe Shopping List",
+        "recipe_name": "Spaghetti Carbonara",
+        "servings": 4,
+        "generated_date": "2024-10-19",
+        "estimated_total": "$13.34"
+      },
+      "stores": [
+        {
+          "store_name": "Whole Foods Market",
+          "address": "123 Main Street, Downtown",
+          "visit_order": 1,
+          "estimated_time": "15 minutes",
+          "items": [
+            {
+              "name": "Pancetta (Deli Counter)",
+              "brand": "Boar's Head",
+              "amount": "200g",
+              "price": "$4.99",
+              "aisle": "Deli Counter",
+              "notes": "Ask for thick sliced"
+            },
+            {
+              "name": "Pecorino Romano Cheese",
+              "brand": "Locatelli",
+              "amount": "100g",
+              "price": "$3.49",
+              "aisle": "Cheese Section",
+              "notes": "Wedge preferred"
+            },
+            {
+              "name": "Free-Range Eggs",
+              "brand": "Organic Valley",
+              "amount": "3 large (buying dozen)",
+              "price": "$2.99",
+              "aisle": "Dairy",
+              "notes": "Room temperature before use"
+            }
+          ],
+          "store_subtotal": "$11.47",
+          "store_tax": "$0.80",
+          "store_total": "$12.27"
+        },
+        {
+          "store_name": "Safeway",
+          "address": "456 Oak Avenue, Downtown",
+          "visit_order": 2,
+          "estimated_time": "5 minutes",
+          "items": [
+            {
+              "name": "Spaghetti Pasta",
+              "brand": "Barilla",
+              "amount": "400g (1 lb package)",
+              "price": "$1.00",
+              "aisle": "Pasta",
+              "notes": "Long pasta for carbonara"
+            }
+          ],
+          "store_subtotal": "$1.00",
+          "store_tax": "$0.07",
+          "store_total": "$1.07"
+        }
+      ],
+      "pantry_check": {
+        "title": "Items to Check in Pantry",
+        "items": [
+          {
+            "name": "Black Pepper",
+            "note": "Freshly ground preferred - key ingredient"
+          },
+          {
+            "name": "Salt",
+            "note": "For pasta cooking water"
+          }
+        ]
+      },
+      "summary": {
+        "total_items": 4,
+        "total_stores": 2,
+        "subtotal": "$12.47",
+        "total_tax": "$0.87",
+        "final_total": "$13.34",
+        "estimated_shopping_time": "35 minutes",
+        "savings_vs_single_store": "$3.21"
+      },
+      "cooking_tips": [
+        "Cook pasta in well-salted water until al dente",
+        "Have egg mixture ready before draining pasta",
+        "Mix hot pasta with eggs off heat to prevent scrambling",
+        "Save pasta water for adjusting consistency"
+      ],
+      "footer": {
+        "generated_by": "AI Recipe Shoplist Crawler",
+        "optimization_note": "This list optimizes for both cost and quality across multiple stores"
+      }
+    }
+  },
+  "metadata": {
+    "response_type": "bill_generation",
+    "created_date": "2024-10-19",
+    "model_used": "mock",
+    "processing_time": "0.1s",
+    "tokens_used": 0,
+    "format": "structured_shopping_list"
+  }
+}

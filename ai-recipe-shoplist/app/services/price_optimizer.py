@@ -1,18 +1,15 @@
 """Price optimization service using AI for intelligent shopping decisions."""
 
-import asyncio
-from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
-from ..models import (
-    Ingredient, Product, ShoppingListItem, OptimizationResult, StoreSearchResult
-)
+
+from ..models import Ingredient, OptimizationResult, ShoppingListItem, StoreSearchResult
 
 
 @dataclass
 class StoreVisit:
     """Represents a visit to a store with items to buy."""
     store_name: str
-    items: List[ShoppingListItem]
+    items: list[ShoppingListItem]
     total_cost: float
     travel_cost: float = 0.0  # Future: add travel cost optimization
 
@@ -34,8 +31,8 @@ class PriceOptimizer:
             "iga": 0.0,
         }
     
-    async def optimize_shopping(self, ingredients: List[Ingredient], 
-                              store_results: Dict[str, List[StoreSearchResult]]) -> OptimizationResult:
+    async def optimize_shopping(self, ingredients: list[Ingredient], 
+                              store_results: dict[str, list[StoreSearchResult]]) -> OptimizationResult:
         """Find the optimal combination of stores and products."""
         print("[PriceOptimizer] Starting optimization")
         
@@ -84,8 +81,8 @@ class PriceOptimizer:
         best_option.savings = max(0, savings)
         return best_option
     
-    def _build_shopping_items(self, ingredients: List[Ingredient], 
-                             store_results: Dict[str, List[StoreSearchResult]]) -> List[ShoppingListItem]:
+    def _build_shopping_items(self, ingredients: list[Ingredient], 
+                             store_results: dict[str, list[StoreSearchResult]]) -> list[ShoppingListItem]:
         """Build shopping list items from ingredients and store results."""
         shopping_items = []
         
@@ -109,22 +106,22 @@ class PriceOptimizer:
                     ingredient=ingredient,
                     selected_product=None,  # Will be set during optimization
                     quantity_needed=ingredient.quantity or 1.0,
-                    estimated_cost=None
+                    estimated_cost=None,
+                    store_options=best_products_by_store  # Include store options in constructor
                 )
-                shopping_item.store_options = best_products_by_store  # Add store options
                 shopping_items.append(shopping_item)
         
         return shopping_items
     
     async def _calculate_single_store_options(self, 
-                                            shopping_items: List[ShoppingListItem]) -> Dict[str, OptimizationResult]:
+                                            shopping_items: list[ShoppingListItem]) -> dict[str, OptimizationResult]:
         """Calculate cost for shopping at each single store."""
         store_options = {}
         
         # Get all available stores
         available_stores = set()
         for item in shopping_items:
-            if hasattr(item, 'store_options'):
+            if item.store_options:
                 available_stores.update(item.store_options.keys())
         
         for store_name in available_stores:
@@ -132,7 +129,7 @@ class PriceOptimizer:
             optimized_items = []
             
             for item in shopping_items:
-                if hasattr(item, 'store_options') and store_name in item.store_options:
+                if item.store_options and store_name in item.store_options:
                     product = item.store_options[store_name]
                     cost = product.price * item.quantity_needed
                     
@@ -167,14 +164,14 @@ class PriceOptimizer:
         return store_options
     
     async def _calculate_multi_store_optimization(self, 
-                                                shopping_items: List[ShoppingListItem]) -> OptimizationResult:
+                                                shopping_items: list[ShoppingListItem]) -> OptimizationResult:
         """Calculate optimal multi-store shopping strategy."""
         optimized_items = []
         stores_breakdown = {}
         total_cost = 0.0
         
         for item in shopping_items:
-            if not hasattr(item, 'store_options') or not item.store_options:
+            if not item.store_options:
                 # No products available for this ingredient
                 optimized_item = ShoppingListItem(
                     ingredient=item.ingredient,
@@ -229,7 +226,7 @@ class PriceOptimizer:
         )
     
     async def _calculate_ai_enhanced_optimization(self, 
-                                                shopping_items: List[ShoppingListItem],
+                                                shopping_items: list[ShoppingListItem],
                                                 ai_service) -> OptimizationResult:
         """Use AI to enhance optimization with smart product substitutions."""
         print("[PriceOptimizer] Using AI enhancement")
@@ -237,7 +234,7 @@ class PriceOptimizer:
         # Create a prompt for AI to optimize the shopping
         optimization_data = []
         for item in shopping_items:
-            if hasattr(item, 'store_options'):
+            if item.store_options:
                 item_data = {
                     "ingredient": item.ingredient.name,
                     "quantity": item.quantity_needed,
@@ -298,7 +295,7 @@ class PriceOptimizer:
                     selection = ai_selections[ingredient_name]
                     selected_store = selection["store"]
                     
-                    if (hasattr(item, 'store_options') and 
+                    if (item.store_options and 
                         selected_store in item.store_options):
                         
                         product = item.store_options[selected_store]
@@ -356,7 +353,7 @@ class PriceOptimizer:
             # Fallback to multi-store optimization
             return await self._calculate_multi_store_optimization(shopping_items)
     
-    async def suggest_meal_planning_optimization(self, recipes: List[str]) -> Dict[str, any]:
+    async def suggest_meal_planning_optimization(self, recipes: list[str]) -> dict[str, any]:
         """Suggest optimization across multiple recipes for meal planning."""
         # Future enhancement: optimize across multiple recipes
         return {

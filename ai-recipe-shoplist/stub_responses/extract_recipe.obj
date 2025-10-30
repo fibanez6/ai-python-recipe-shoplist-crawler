@@ -1,0 +1,38 @@
+Recipe(
+    title="Chef John's Gazpacho",
+    url='https://www.allrecipes.com/recipe/chef-johns-gazpacho/',
+    description='A refreshing cold soup made with fresh vegetables, perfect for summer.',
+    servings=6, 
+    prep_time='45 mins',
+    cook_time='2 hrs',
+    ingredients=[
+        Ingredient(name='tomato', quantity=4.0, unit=<QuantityUnit.PIECE: 'piece'>, original_text='4 large fresh tomatoes, peeled and diced', optional=False, category='vegetable', alternatives=None, notes='peeled and diced', quality='fresh', brand_preference=None), 
+        Ingredient(name='English cucumber', quantity=0.5, unit=<QuantityUnit.PIECE: 'piece'>, original_text='½ English cucumber, peeled and finely diced', optional=False, category='vegetable', alternatives=None, notes='peeled and finely diced', quality=None, brand_preference=None), 
+        Ingredient(name='red bell pepper', quantity=0.5, unit=<QuantityUnit.CUP: 'cup'>, original_text='½ cup finely diced red bell pepper', optional=False, category='vegetable', alternatives=None, notes='finely diced', quality=None, brand_preference=None), 
+        Ingredient(name='green onion', quantity=0.25, unit=<QuantityUnit.CUP: 'cup'>, original_text='¼ cup minced green onion', optional=False, category='vegetable', alternatives=None, notes='minced', quality=None, brand_preference=None), 
+        Ingredient(name='jalapeño pepper', quantity=1.0, unit=<QuantityUnit.PIECE: 'piece'>, original_text='1 large jalapeño pepper, seeded and minced', optional=False, category='vegetable', alternatives=None, notes='seeded and minced', quality=None, brand_preference=None), 
+        Ingredient(name='garlic', quantity=2.0, unit=<QuantityUnit.CLOVE: 'clove'>, original_text='2 cloves garlic, minced', optional=False, category='spice', alternatives=None, notes='minced', quality=None, brand_preference=None), 
+        Ingredient(name='salt', quantity=1.0, unit=<QuantityUnit.TEASPOON: 'tsp'>, original_text='1 teaspoon salt', optional=False, category='spice', alternatives=None, notes=None, quality=None, brand_preference=None), 
+        Ingredient(name='ground cumin', quantity=0.5, unit=<QuantityUnit.TEASPOON: 'tsp'>, original_text='½ teaspoon ground cumin', optional=False, category='spice', alternatives=None, notes=None, quality=None, brand_preference=None), 
+        Ingredient(name='dried oregano', quantity=1.0, unit=<QuantityUnit.PINCH: 'pinch'>, original_text='1 pinch dried oregano', optional=False, category='spice', alternatives=None, notes=None, quality=None, brand_preference=None), 
+        Ingredient(name='cayenne pepper', quantity=1.0, unit=<QuantityUnit.PINCH: 'pinch'>, original_text='1 pinch cayenne pepper, or to taste', optional=True, category='spice', alternatives=None, notes='or to taste', quality=None, brand_preference=None), 
+        Ingredient(name='black pepper', quantity=None, unit=None, original_text='freshly ground black pepper to taste', optional=True, category='spice', alternatives=None, notes='freshly ground', quality='freshly ground', brand_preference=None), 
+        Ingredient(name='cherry tomato', quantity=1.0, unit=<QuantityUnit.PINCH: 'pinch'>, original_text='1 pint cherry tomatoes', optional=False, category='vegetable', alternatives=None, notes=None, quality=None, brand_preference=None), 
+        Ingredient(name='extra-virgin olive oil', quantity=0.25, unit=<QuantityUnit.CUP: 'cup'>, original_text='¼ cup extra-virgin olive oil', optional=False, category='oil', alternatives=None, notes=None, quality='extra-virgin', brand_preference=None), 
+        Ingredient(name='lime', quantity=1.0, unit=<QuantityUnit.PIECE: 'piece'>, original_text='1 lime, juiced', optional=False, category='fruit', alternatives=None, notes='juiced', quality=None, brand_preference=None), 
+        Ingredient(name='balsamic vinegar', quantity=1.0, unit=<QuantityUnit.TABLESPOON: 'tbsp'>, original_text='1 tablespoon balsamic vinegar', optional=False, category='condiment', alternatives=None, notes=None, quality=None, brand_preference=None), 
+        Ingredient(name='Worcestershire sauce', quantity=1.0, unit=<QuantityUnit.TEASPOON: 'tsp'>, original_text='1 teaspoon Worcestershire sauce', optional=False, category='condiment', alternatives=None, notes=None, quality=None, brand_preference=None), 
+        Ingredient(name='fresh basil', quantity=2.0, unit=<QuantityUnit.TABLESPOON: 'tbsp'>, original_text='2 tablespoons thinly sliced fresh basil', optional=False, category='herb', alternatives=None, notes='thinly sliced', quality='fresh', brand_preference=None)
+    ],
+    instructions=[
+        'Combine diced tomatoes, cucumber, bell pepper, green onion, jalapeño, and garlic in a large bowl.', 
+        'Stir in salt, cumin, oregano, cayenne pepper, and black pepper.', 
+        'Place cherry tomatoes, olive oil, lime juice, balsamic vinegar, and Worcestershire sauce in a blender. Cover and purée until smooth.', 
+        'Pour puréed mixture through a strainer into the tomato-cucumber mixture; stir to combine.', 
+        'Place 1/3 of the tomato mixture into the blender. Cover, turn blender on, and purée until smooth.', 
+        'Return puréed mixture to the remaining tomato-cucumber mixture. Stir to combine.', 
+        'Cover and chill in the refrigerator for 2 hours.', 'Season cold soup with salt and black pepper to taste.', 
+        'Ladle into bowls and top with basil.'
+    ],
+    image_url=None
+)
