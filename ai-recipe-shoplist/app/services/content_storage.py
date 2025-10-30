@@ -6,97 +6,109 @@ from pathlib import Path
 from typing import Dict
 
 from ..config.logging_config import get_logger
+from ..config.pydantic_config import STORAGE_SETTINGS
 
 logger = get_logger(__name__)
 
+ORIGINAL_CONTENT = "content"
+CLEANED_CONTENT = "cleaned_content"
+LOADED_ORIGINAL_CONTENT = "loaded_content_from_disk"
+LOADED_CLEANED_CONTENT = "loaded_cleaned_content_from_disk"
+URL_MAPPING = "url_mapping"
 
-class ContentStorage:
+class WebContentStorage:
     """Manages saving and loading of web content to/from disk files."""
-    
-    def __init__(self, tmp_folder: Path, enable_saving: bool = False, enable_loading: bool = False):
+
+    def __init__(self, tmp_folder: Path = STORAGE_SETTINGS.tmp_folder):
         """
         Initialize the content storage.
         
         Args:
             tmp_folder: Base temporary folder for storage
-            enable_saving: Whether content saving is enabled
-            enable_loading: Whether content loading is enabled
         """
+        self.name = "WebContentStorage"
         self.tmp_folder = tmp_folder
-        self.enable_saving = enable_saving
-        self.enable_loading = enable_loading
-        
+        self.enable_saving = STORAGE_SETTINGS.enable_saving
+        self.enable_loading = STORAGE_SETTINGS.enable_loading
+
         # Content folder inside tmp folder
         self.content_folder = self.tmp_folder / "content"
         
         # Create content folder if needed and saving is enabled
         if self.enable_saving:
             self.content_folder.mkdir(parents=True, exist_ok=True)
-        
-        logger.debug(f"[ContentStorage] Initialized - Saving: {self.enable_saving}, Loading: {self.enable_loading}")
-        logger.debug(f"[ContentStorage] Content folder: {self.content_folder}")
-    
+
+        logger.debug(f"[{self.name}] Initialized - Saving: {self.enable_saving}, Loading: {self.enable_loading}")
+        logger.debug(f"[{self.name}] Content folder: {self.content_folder}")
+
     def _get_url_hash(self, url: str) -> str:
         """Generate a hash for the URL to use as filename base."""
         return hashlib.md5(url.encode()).hexdigest()
     
-    def save_content(self, url: str, original_content: str, cleaned_content: str = None) -> Dict[str, str]:
+    def save_html_content(self, url: str, html_content: Dict[str, str]) -> Dict[str, str]:
         """
         Save both original and cleaned content to separate files on disk.
-        
+
         Args:
             url: URL of the content
-            original_content: Original HTML content
-            cleaned_content: Cleaned content (optional)
-            
+            html_content: Dict containing original and optionally cleaned HTML content.
+            - "content": Original HTML content (required)
+            - "cleaned_content": Cleaned HTML content (optional)
+            - "loaded_content_from_disk": True if loaded from disk (optional)
+            - "loaded_cleaned_content_from_disk": True if cleaned content loaded from disk (optional)
+
         Returns:
             Dict with file paths of saved content (empty if saving disabled)
         """
         if not self.enable_saving:
-            logger.debug(f"[ContentStorage] Content saving disabled for {url}")
+            logger.debug(f"[{self.name}] Content saving disabled for {url}")
             return {}
         
         url_hash = self._get_url_hash(url)
-        
-        # Ensure content folder exists
-        self.content_folder.mkdir(parents=True, exist_ok=True)
-        
+                
         saved_files = {}
         
         try:
+            if ORIGINAL_CONTENT not in html_content:
+                raise ValueError("Original content is missing")
+
             # Save original content
-            original_file = self.content_folder / f"{url_hash}_original.html"
-            with open(original_file, 'w', encoding='utf-8') as f:
-                f.write(original_content)
-            saved_files["original_file"] = str(original_file)
-            logger.debug(f"[ContentStorage] Saved original content to: {original_file}")
+            if html_content[LOADED_ORIGINAL_CONTENT] != True:
+                original_file = self.content_folder / f"{url_hash}_original.html"
+                with open(original_file, 'w', encoding='utf-8') as f:
+                    f.write(html_content[ORIGINAL_CONTENT])
+                saved_files["original_file"] = str(original_file)
+                logger.debug(f"[{self.name}] Saved original content to: {original_file}")
             
             # Save cleaned content if provided
-            if cleaned_content:
+            if CLEANED_CONTENT in html_content and html_content[LOADED_CLEANED_CONTENT] != True:
                 cleaned_file = self.content_folder / f"{url_hash}_cleaned.html"
                 with open(cleaned_file, 'w', encoding='utf-8') as f:
-                    f.write(cleaned_content)
+                    f.write(html_content[CLEANED_CONTENT])
                 saved_files["cleaned_file"] = str(cleaned_file)
-                logger.debug(f"[ContentStorage] Saved cleaned content to: {cleaned_file}")
-            
+                logger.debug(f"[{self.name}] Saved cleaned content to: {cleaned_file}")
+
             # Save URL mapping for reference
-            url_mapping_file = self.content_folder / f"{url_hash}_url.txt"
-            with open(url_mapping_file, 'w', encoding='utf-8') as f:
-                f.write(f"URL: {url}\n")
-                f.write(f"Hash: {url_hash}\n")
-                f.write(f"Timestamp: {time.time()}\n")
-                f.write(f"Original file: {saved_files.get('original_file', 'N/A')}\n")
-                f.write(f"Cleaned file: {saved_files.get('cleaned_file', 'N/A')}\n")
-            saved_files["url_mapping_file"] = str(url_mapping_file)
-            
-            logger.info(f"[ContentStorage] Saved content files for {url} (hash: {url_hash})")
-            
+            if html_content[LOADED_ORIGINAL_CONTENT] != True:
+                url_mapping_file = self.content_folder / f"{url_hash}_url.txt"
+                with open(url_mapping_file, 'w', encoding='utf-8') as f:
+                    f.write(f"URL: {url}\n")
+                    f.write(f"Hash: {url_hash}\n")
+                    f.write(f"Timestamp: {time.time()}\n")
+                    f.write(f"Original file: {saved_files.get('original_file', 'N/A')}\n")
+                    f.write(f"Cleaned file: {saved_files.get('cleaned_file', 'N/A')}\n")
+                saved_files["url_mapping_file"] = str(url_mapping_file)
+
+                logger.info(f"[{self.name}] Saved content files for {url} (hash: {url_hash})")
+            else:
+                logger.info(f"[{self.name}] Skipped saving content files for {url} (already loaded from disk)")
+
         except IOError as e:
-            logger.warning(f"[ContentStorage] Error saving content to disk for {url}: {e}")
-        
+            logger.warning(f"[{self.name}] Error saving content to disk for {url}: {e}")
+
         return saved_files
     
-    def load_content(self, url: str) -> Dict[str, str]:
+    def load_html_content(self, url: str) -> Dict[str, str]:
         """
         Load both original and cleaned content from disk if available.
         
@@ -107,7 +119,7 @@ class ContentStorage:
             Dict with content loaded from disk (empty if not found or loading disabled)
         """
         if not self.enable_loading:
-            logger.debug(f"[ContentStorage] Content loading disabled for {url}")
+            logger.debug(f"[{self.name}] Content loading disabled for {url}")
             return {}
         
         if not self.content_folder.exists():
@@ -121,28 +133,30 @@ class ContentStorage:
             original_file = self.content_folder / f"{url_hash}_original.html"
             if original_file.exists():
                 with open(original_file, 'r', encoding='utf-8') as f:
-                    loaded_content["original_content"] = f.read()
-                logger.debug(f"[ContentStorage] Loaded original content from: {original_file}")
+                    loaded_content[ORIGINAL_CONTENT] = f.read()
+                loaded_content[LOADED_ORIGINAL_CONTENT] = True
+                logger.debug(f"[{self.name}] Loaded original content from: {original_file}")
             
             # Load cleaned content
             cleaned_file = self.content_folder / f"{url_hash}_cleaned.html"
             if cleaned_file.exists():
                 with open(cleaned_file, 'r', encoding='utf-8') as f:
-                    loaded_content["cleaned_content"] = f.read()
-                logger.debug(f"[ContentStorage] Loaded cleaned content from: {cleaned_file}")
-            
+                    loaded_content[CLEANED_CONTENT] = f.read()
+                loaded_content[LOADED_CLEANED_CONTENT] = True
+                logger.debug(f"[{self.name}] Loaded cleaned content from: {cleaned_file}")
+
             # Load URL mapping
             url_mapping_file = self.content_folder / f"{url_hash}_url.txt"
             if url_mapping_file.exists():
                 with open(url_mapping_file, 'r', encoding='utf-8') as f:
-                    loaded_content["url_mapping"] = f.read()
+                    loaded_content[URL_MAPPING] = f.read()
             
             if loaded_content:
-                logger.info(f"[ContentStorage] Loaded content from disk for {url} (hash: {url_hash})")
-            
+                logger.info(f"[{self.name}] Loaded content from disk for {url} (hash: {url_hash})")
+
         except IOError as e:
-            logger.warning(f"[ContentStorage] Error loading content from disk for {url}: {e}")
-        
+            logger.warning(f"[{self.name}] Error loading content from disk for {url}: {e}")
+
         return loaded_content
     
     def has_cleaned_content(self, url: str) -> bool:
@@ -177,7 +191,7 @@ class ContentStorage:
                     content_file.unlink()
                     content_files_count += 1
                 except OSError as e:
-                    logger.warning(f"[ContentStorage] Error removing content file {content_file}: {e}")
+                    logger.warning(f"[{self.name}] Error removing content file {content_file}: {e}")
             
             # Remove empty content folder
             try:
@@ -185,7 +199,7 @@ class ContentStorage:
             except OSError:
                 pass  # Folder might not be empty
         
-        logger.info(f"[ContentStorage] Cleared {content_files_count} content files")
+        logger.info(f"[{self.name}] Cleared {content_files_count} content files")
         return content_files_count
     
     def get_content_stats(self) -> Dict[str, any]:
@@ -209,22 +223,3 @@ class ContentStorage:
             "loading_enabled": self.enable_loading
         }
     
-    def update_config(self, enable_saving: bool = None, enable_loading: bool = None) -> None:
-        """
-        Update the content storage configuration.
-        
-        Args:
-            enable_saving: New saving enabled state (None = no change)
-            enable_loading: New loading enabled state (None = no change)
-        """
-        if enable_saving is not None:
-            self.enable_saving = enable_saving
-            logger.debug(f"[ContentStorage] Content saving updated to: {self.enable_saving}")
-        
-        if enable_loading is not None:
-            self.enable_loading = enable_loading
-            logger.debug(f"[ContentStorage] Content loading updated to: {self.enable_loading}")
-        
-        # Create content folder if saving is enabled
-        if self.enable_saving:
-            self.content_folder.mkdir(parents=True, exist_ok=True)

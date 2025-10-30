@@ -31,16 +31,17 @@ logger = setup_logging(
     log_file=LOG_FILE_PATH
 )
 
+from contextlib import asynccontextmanager
+
 from .models import APIResponse, Ingredient, QuantityUnit, Recipe, SearchStoresRequest
 
 # Import services
 from .services.ai_service import get_ai_service
 from .services.bill_generator import bill_generator
-from .services.price_optimizer import price_optimizer
 from .services.grocery_service import grocery_service
+from .services.price_optimizer import price_optimizer
 from .services.web_fetcher import get_web_fetcher
 
-from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -128,7 +129,7 @@ async def process_recipe(url: str = Form(...)):
         ai_service = get_ai_service()
         
         # Fetch recipe content using the web fetcher service
-        fetch_result = await web_fetcher.fetch_recipe_content(url, clean_html=True)
+        fetch_result = await web_fetcher.fetch_html_content(url, clean_html=True)
         html_content = fetch_result.get("cleaned_content", fetch_result["content"])
         
         # Extract recipe using AI
@@ -279,7 +280,7 @@ async def search_stores(request: SearchStoresRequest):
 #             ai_service = get_ai_service()
             
 #             # Fetch recipe content using the web fetcher service
-#             fetch_result = await web_fetcher.fetch_recipe_content(recipe_url, clean_html=True)
+#             fetch_result = await web_fetcher.fetch_html_content(recipe_url, clean_html=True)
             
 #             # Log fetch details
 #             if logger.isEnabledFor(logging.DEBUG):
@@ -414,7 +415,7 @@ async def get_fetcher_content(recipe_url: str = Form(...)):
     """Get web fetcher content."""
 
     web_fetcher = get_web_fetcher()
-    fetch_result = await web_fetcher.fetch_recipe_content(recipe_url, clean_html=True)
+    fetch_result = await web_fetcher.fetch_html_content(recipe_url, clean_html=True)
 
     return APIResponse(
         success=True,

@@ -58,9 +58,9 @@ class StoreConfig:
         """Generate product URL from template."""
         return self.product_url_template.format(product_id=product_id)
     
-    def get_name_and_product_url(self, product_id: str) -> str:
+    def get_store_name_and_search_url(self, product_name: str) -> str:
         """Return a string with the store name and product URL."""
-        return f"{self.name}: {self.get_product_url(product_id)}"
+        return f"{self.name}: {self.get_search_url(product_name)}"
 
 # Australian grocery stores
 STORE_CONFIGS: Dict[str, StoreConfig] = {
@@ -91,6 +91,7 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         display_name="Woolworths Supermarkets",
         region=StoreRegion.AUSTRALIA,
         base_url="https://www.woolworths.com.au",
+        search_url="https://www.woolworths.com.au/shop/search",
         search_api_template="https://www.woolworths.com.au/api/search?q={query}",
         product_url_template="https://www.woolworths.com.au/shop/productdetails/{product_id}",
         search_param="searchTerm",
@@ -113,7 +114,7 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         base_url="https://www.aldi.com.au",
         search_url="https://www.aldi.com.au/results",
         search_api_template="https://api.aldi.com.au/v3/product-search?currency=AUD&q={product_id}",
-        product_template="https://www.aldi.com.au/product/{product_id}",
+        product_url_template="https://www.aldi.com.au/product/{product_id}",
         search_param="q",
         rate_limit_delay=2.0,  # More conservative for ALDI
         price_multiplier=0.85,  # ALDI typically cheaper
@@ -133,6 +134,7 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         display_name="IGA (Independent Grocers of Australia)",
         region=StoreRegion.AUSTRALIA,
         base_url="https://www.iga.com.au", 
+        search_url="https://www.iga.com.au/search",
         search_api_template="https://www.iga.com.au/api/search?q={query}",
         product_url_template="https://www.iga.com.au/product/{product_id}",
         search_param="term",

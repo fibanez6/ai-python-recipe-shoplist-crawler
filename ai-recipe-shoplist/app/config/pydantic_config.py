@@ -4,6 +4,7 @@ Modern configuration management using Pydantic Settings.
 This module provides type-safe, validated configuration with automatic
 environment variable loading and .env file support.
 """
+from pathlib import Path
 from pydantic import ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings
 from typing_extensions import Literal, get_args
@@ -20,12 +21,9 @@ class WebFetcherSettings(BaseSettings):
     )
     cache_ttl: int = Field(default=3600, description="Cache TTL in seconds (1 hour)")
     tmp_folder: str = Field(default="tmp/web_cache", description="Temporary folder for caching")
-    enable_content_saving: bool = Field(default=False, description="Enable saving content to disk")
-    enable_content_loading: bool = Field(default=False, description="Enable loading content from disk")
     cleaner_html_to_text: bool = Field(default=False, description="Convert HTML to plain text for AI processing")
     
     model_config = ConfigDict(env_prefix="FETCHER_")
-
 
 class AIProviderSettings(BaseSettings):
     """AI provider configuration settings."""
@@ -36,7 +34,6 @@ class AIProviderSettings(BaseSettings):
     provider_chat_enabled: bool = Field(default=True, description="Enable or disable AI provider chat")
     
     model_config = ConfigDict(env_prefix="")
-
 
 class OpenAISettings(BaseSettings):
     """OpenAI configuration settings."""
@@ -54,7 +51,6 @@ class OpenAISettings(BaseSettings):
     rpm_limit: int = Field(default=500, description="Requests per minute limit")
     
     model_config = ConfigDict(env_prefix="OPENAI_")
-
 
 class AzureOpenAISettings(BaseSettings):
     """Azure OpenAI configuration settings."""
@@ -75,7 +71,6 @@ class AzureOpenAISettings(BaseSettings):
     
     model_config = ConfigDict(env_prefix="AZURE_OPENAI_")
 
-
 class OllamaSettings(BaseSettings):
     """Ollama configuration settings."""
     
@@ -92,7 +87,6 @@ class OllamaSettings(BaseSettings):
     rpm_limit: int = Field(default=60, description="Requests per minute limit")
     
     model_config = ConfigDict(env_prefix="OLLAMA_")
-
 
 class GitHubSettings(BaseSettings):
     """GitHub Models configuration settings."""
@@ -112,7 +106,6 @@ class GitHubSettings(BaseSettings):
     
     model_config = ConfigDict(env_prefix="GITHUB_")
 
-
 class LoggingSettings(BaseSettings):
     """Logging configuration settings."""
     
@@ -128,7 +121,6 @@ class LoggingSettings(BaseSettings):
     
     model_config = ConfigDict(env_prefix="LOG_")
 
-
 class ServerSettings(BaseSettings):
     """Server configuration settings."""
     
@@ -136,7 +128,6 @@ class ServerSettings(BaseSettings):
     port: int = Field(default=8000, description="Server port")
     
     model_config = ConfigDict(env_prefix="SERVER_")
-
 
 class RetrySettings(BaseSettings):
     """Global retry configuration settings."""
@@ -148,15 +139,6 @@ class RetrySettings(BaseSettings):
     rpm_limit: int = Field(default=15, description="Requests per minute limit")
     
     model_config = ConfigDict(env_prefix="RETRY_")
-
-
-class StoreSettings(BaseSettings):
-    """Store crawler configuration settings."""
-    
-    region: str = Field(default="au", description="Store region (au, us, uk, etc.)")
-    
-    model_config = ConfigDict(env_prefix="STORE_")
-
 
 class MockSettings(BaseSettings):
     """Mock/stub configuration settings."""
@@ -173,6 +155,22 @@ class TiktokenSettings(BaseSettings):
 
     model_config = ConfigDict(env_prefix="TIKTOKEN_")
 
+class StorageSettings(BaseSettings):
+    """Storage configuration settings."""
+
+    tmp_folder: Path = Field(default=Path("tmp/web_cache"), description="Temporary folder for caching")
+    enable_saving: bool = Field(default=True, description="Enable saving original and cleaned content to disk")
+    enable_loading: bool = Field(default=True, description="Enable loading cleaned content from disk when available")
+
+    model_config = ConfigDict(env_prefix="STORAGE_")
+
+class CacheSettings(BaseSettings):
+    """Cache configuration settings."""
+
+    ttl: int = Field(default=3600, description="Cache TTL in seconds (1 hour)")
+    max_size: int = Field(default=10485760, description="Maximum cache size in bytes (10MB)")
+
+    model_config = ConfigDict(env_prefix="CACHE_")
 
 class AppSettings(BaseSettings):
     """Main application settings that combines all configuration sections."""
@@ -187,12 +185,14 @@ class AppSettings(BaseSettings):
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
     retry: RetrySettings = Field(default_factory=RetrySettings)
-    store: StoreSettings = Field(default_factory=StoreSettings)
     mock: MockSettings = Field(default_factory=MockSettings)
     tiktoken: TiktokenSettings = Field(default_factory=TiktokenSettings)
+    storage: StorageSettings = Field(default_factory=StorageSettings)
+    cache: CacheSettings = Field(default_factory=CacheSettings)
 
     @field_validator('web_fetcher', 'ai_provider', 'openai', 'azure', 'ollama', 'github',
-              'logging', 'server', 'retry', 'store', 'mock', 'tiktoken', mode='before')
+              'logging', 'server', 'retry', 'mock', 'tiktoken', 'storage', 'cache', 
+              mode='before')
     @classmethod
     def ensure_settings_instances(cls, v, info):
         """Ensure all settings are properly instantiated."""
@@ -264,21 +264,17 @@ class AppSettings(BaseSettings):
 # Global settings instance
 settings = AppSettings()
 
-# Backward compatibility exports
-FETCHER_TIMEOUT = settings.web_fetcher.timeout
-FETCHER_MAX_SIZE = settings.web_fetcher.max_size
-FETCHER_USER_AGENT = settings.web_fetcher.user_agent
-FETCHER_CACHE_TTL = settings.web_fetcher.cache_ttl
-FETCHER_TMP_FOLDER = settings.web_fetcher.tmp_folder
-FETCHER_ENABLE_CONTENT_SAVING = settings.web_fetcher.enable_content_saving
-FETCHER_ENABLE_CONTENT_LOADING = settings.web_fetcher.enable_content_loading
-FETCHER_CLEANER_HTML_TO_TEXT = settings.web_fetcher.cleaner_html_to_text
+FETCHER_SETTINGS = settings.web_fetcher
+STORAGE_SETTINGS = settings.storage
+CACHE_SETTINGS = settings.cache
 
-TIKTOKEN_MODEL = settings.tiktoken.model
-TIKTOKEN_ENCODER = settings.tiktoken.encoder
+TIKTOKEN_SETTINGS = settings.tiktoken
 
+# AI provider settings
 AI_PROVIDER = settings.ai_provider.provider
 AI_PROVIDER_CHAT_ENABLED = settings.ai_provider.provider_chat_enabled
+
+GITHUB_SETTINGS = settings.github
 
 OPENAI_API_KEY = settings.openai.api_key
 OPENAI_MODEL = settings.openai.model
@@ -300,13 +296,6 @@ OLLAMA_MAX_TOKENS = settings.ollama.max_tokens
 OLLAMA_TEMPERATURE = settings.ollama.temperature
 OLLAMA_TIMEOUT = settings.ollama.timeout
 
-GITHUB_TOKEN = settings.github.token
-GITHUB_MODEL = settings.github.model
-GITHUB_API_URL = settings.github.api_url
-GITHUB_MAX_TOKENS = settings.github.max_tokens
-GITHUB_TEMPERATURE = settings.github.temperature
-GITHUB_TIMEOUT = settings.github.timeout
-
 LOG_LEVEL = settings.logging.level
 LOG_DEBUG_ENABLED = settings.logging.log_debug_enabled
 LOG_TO_FILE = settings.logging.to_file
@@ -325,8 +314,6 @@ RETRY_BASE_DELAY = settings.retry.base_delay
 RETRY_MAX_DELAY = settings.retry.max_delay
 RETRY_MULTIPLIER = settings.retry.multiplier
 RETRY_RPM_LIMIT = settings.retry.rpm_limit
-
-STORE_REGION = settings.store.region
 
 USE_MOCK_AI_RESPONSES = settings.mock.use_mock_ai_responses
 

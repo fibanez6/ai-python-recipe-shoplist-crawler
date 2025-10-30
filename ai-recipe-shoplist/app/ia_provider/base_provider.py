@@ -184,7 +184,7 @@ class BaseAIProvider(ABC):
         logger.info(f"[{self.name}] Searching grocery products for {len(ingredients)} ingredients and {len(stores)} stores")
 
         # Prepare store list
-        store_list = "\n".join( [store.get_name_and_product_url("<ingredient_name>") for store in stores] )
+        store_list = "\n".join( [store.get_store_name_and_search_url("<ingredient_name>") for store in stores] )
         # Prepare ingredient list
         ingredient_list = "\n".join(map(str, ingredients))
 

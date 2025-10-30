@@ -5,9 +5,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup, Comment  
 
 from app.config.logging_config import get_logger, setup_logging
-from ..config.pydantic_config import (
-    FETCHER_CLEANER_HTML_TO_TEXT,
-)
+from ..config.pydantic_config import FETCHER_SETTINGS
 
 def remove_html_scripts_and_styles(soup: BeautifulSoup) -> None:
     """Remove script and style elements from the BeautifulSoup object."""
@@ -64,7 +62,7 @@ def clean_html_for_ai(html_content: str) -> str:
 
         # Get cleaned text
         cleaned = str(soup)
-        if FETCHER_CLEANER_HTML_TO_TEXT:
+        if FETCHER_SETTINGS.cleaner_html_to_text:
             cleaned = get_text_from_html(soup)
         else:
             cleaned = remove_whitespaces_and_newlines(cleaned)

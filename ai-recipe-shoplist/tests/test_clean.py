@@ -1,14 +1,15 @@
 import os
 import sys
 from pathlib import Path
+
 from bs4 import BeautifulSoup
 
 # Add the app directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from app.config.logging_config import get_logger, setup_logging
+from app.models import Ingredient, QuantityUnit  # Import Ingredient
 from app.services.content_storage import ContentStorage  # Import ContentStorage
-from app.utils.html_helpers import clean_html_for_ai
 from app.utils.ai_helpers import (
     INGREDIENT_NORMALIZATION_PROMPT,
     clean_json_response,
@@ -17,7 +18,7 @@ from app.utils.ai_helpers import (
     validate_ingredient_data,
     validate_recipe_data,
 )
-from app.models import Ingredient, QuantityUnit  # Import Ingredient
+from app.utils.html_helpers import clean_html_for_ai
 
 url = "https://www.allrecipes.com/recipe/222331/chef-johns-gazpacho/"
 
@@ -33,7 +34,7 @@ def save(name: str, content: str):
 
     
 def test_clean():
-    disk_content = content_storage.load_content(url)
+    disk_content = content_storage.load_html_content(url)
     original_content = disk_content.get('original_content', '')
 
     logger = get_logger(__name__)
