@@ -1,9 +1,6 @@
 """Utility modules for the AI Recipe Shoplist Crawler."""
 
 from .ai_helpers import (
-    ALTERNATIVES_PROMPT,
-    PRODUCT_MATCHING_PROMPT,
-    RECIPE_EXTRACTION_PROMPT,
     clean_json_response,
     extract_json_from_text,
     format_ai_prompt,
@@ -34,10 +31,6 @@ __all__ = [
     "extract_json_from_text",
     "normalize_ai_response",
     "format_ai_prompt",
-    "RECIPE_EXTRACTION_PROMPT",
-    "PRODUCT_MATCHING_PROMPT",
-    "ALTERNATIVES_PROMPT",
-    
     # Retry utilities (tenacity-based)
     "RateLimiter",
     "AIRetryConfig",

@@ -11,11 +11,15 @@ from ..config.pydantic_config import CACHE_SETTINGS
 
 logger = get_logger(__name__)
 
+FROM_CACHE = "from_cache"
+TIMESTAMP = "timestamp"
+
 class CacheManager:
     """Manages caching for web content using (in-memory TTL cache) only."""
 
     def __init__(self, ttl: int = CACHE_SETTINGS.ttl):
         self.name = "CacheManager"
+        self.enabled = CACHE_SETTINGS.enabled
         self.ttl = ttl
         self.max_size = CACHE_SETTINGS.max_size
         self.cache = TTLCache(maxsize=self.max_size, ttl=self.ttl)
@@ -26,11 +30,13 @@ class CacheManager:
         """
         Get content from in-memory cache if available and not expired.
         """
+        if not self.enabled:
+            return None
+
         try:
             cache_entry = self.cache[url]
             logger.info(f"[{self.name}] Serving cached content from for {url}")
-            cache_entry["from_cache"] = True
-            cache_entry["from_file_cache"] = False
+            cache_entry[FROM_CACHE] = True
             return cache_entry
         except KeyError:
             return None
@@ -39,8 +45,11 @@ class CacheManager:
         """
         Save content to in-memory cache.
         """
+        if not self.enabled:
+            return
+
         cache_data = data.copy()
-        cache_data["timestamp"] = time.time()
+        cache_data[TIMESTAMP] = time.time()
         self.cache[url] = cache_data
         logger.debug(f"[{self.name}] Saved content to for {url}")
     
@@ -49,15 +58,15 @@ class CacheManager:
         """
         Get cached content from in-memory cache.
         """
-        if not use_cache:
+        if not use_cache or not self.enabled:
             return None
         return self.get_from_memory_cache(url)
     
-    def save_html_content(self, url: str, data: Dict[str, Any], use_cache: bool = True) -> None:
+    def save_fetch_content(self, url: str, data: Dict[str, Any], use_cache: bool = True) -> None:
         """
         Save content to in-memory cache.
         """
-        if not use_cache:
+        if not use_cache or not self.enabled:
             return
         self.save_to_memory_cache(url, data)
         content_length = data.get("size", 0)
@@ -67,6 +76,9 @@ class CacheManager:
         """
         Clear all in-memory cache entries.
         """
+        if not self.enabled:
+            return {"cachetools_cleared": 0}
+
         cleared = len(self.cache)
         self.cache.clear()
         logger.info(f"[{self.name}] Cleared all cache entries.")
@@ -74,7 +86,18 @@ class CacheManager:
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics (only)."""
+
+        if not self.enabled:
+            return {
+                "enabled": False,
+                "entries": 0,
+                "keys": [],
+                "ttl_seconds": self.ttl,
+                "max_size": self.max_size
+            }
+        
         return {
+            "enabled": True,
             "entries": len(self.cache),
             "keys": list(self.cache.keys()),
             "ttl_seconds": self.ttl,

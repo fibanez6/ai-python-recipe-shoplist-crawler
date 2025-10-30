@@ -117,6 +117,7 @@ class LoggingSettings(BaseSettings):
     max_length: int = Field(default=500, description="Maximum length in characters (0 = no limit)")
     chat_message_max_length: int = Field(default=500, description="Maximum length of chat messages to log (0 = no limit)")
     chat_message_single_line: bool = Field(default=False, description="Log chat messages in a single line")
+    chat_full_responses: bool = Field(default=False, description="Log full chat responses")
     format_string: str | None = Field(default=None, description="Log format string")
     
     model_config = ConfigDict(env_prefix="LOG_")
@@ -167,6 +168,7 @@ class StorageSettings(BaseSettings):
 class CacheSettings(BaseSettings):
     """Cache configuration settings."""
 
+    enabled: bool = Field(default=True, description="Enable caching")
     ttl: int = Field(default=3600, description="Cache TTL in seconds (1 hour)")
     max_size: int = Field(default=10485760, description="Maximum cache size in bytes (10MB)")
 

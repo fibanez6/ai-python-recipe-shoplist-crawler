@@ -19,6 +19,7 @@ class WebFetcher:
     """Service for fetching web content with caching and error handling."""
     
     def __init__(self):
+        self.name = "WebFetcher"
         self.timeout = FETCHER_SETTINGS.timeout
         self.max_content_size = FETCHER_SETTINGS.max_size
         self.user_agent = FETCHER_SETTINGS.user_agent
@@ -33,8 +34,8 @@ class WebFetcher:
         self.cache_manager = CacheManager(cache_ttl)
         self.content_storage = WebContentStorage(self.tmp_folder)
         
-        logger.info(f"WebFetcher initialized - Timeout: {self.timeout}s, Max size: {self.max_content_size} bytes")
-        logger.info(f"WebFetcher tmp folder: {self.tmp_folder}")
+        logger.info(f"[{self.name}] initialized - Timeout: {self.timeout}s, Max size: {self.max_content_size} bytes")
+        logger.info(f"[{self.name}] tmp folder: {self.tmp_folder}")
     
     async def fetch_url(self, url: str, use_cache: bool = True) -> Dict[str, Any]:
         """
@@ -71,14 +72,14 @@ class WebFetcher:
                 headers={"User-Agent": self.user_agent}
             ) as client:
 
-                logger.info(f"[WebFetcher] Fetching URL: {url}")
+                logger.info(f"[{self.name}] Fetching URL: {url}")
                 response = await client.get(url)
                 response.raise_for_status()
                 
                 # Check content size
                 content_length = len(response.content)
                 if content_length > self.max_content_size:
-                    raise ValueError(f"[WebFetcher] Content too large: {content_length} bytes (max: {self.max_content_size})")
+                    raise ValueError(f"[{self.name}] Content too large: {content_length} bytes (max: {self.max_content_size})")
                 
                 duration = time.time() - start_time
                 
@@ -92,75 +93,76 @@ class WebFetcher:
                     "headers": dict(response.headers),
                     "timestamp": time.time(),
                     "from_cache": False,
-                    "from_file_cache": False,
                     "size": content_length
                 }
                 
                 # Cache the result using cache manager
-                self.cache_manager.save_html_content(url, result, use_cache)
+                self.cache_manager.save_fetch_content(url, result, use_cache)
                 
-                logger.info(f"[WebFetcher] Successfully fetched {url} - {content_length} bytes in {duration:.2f}s")
+                logger.info(f"[{self.name}] Successfully fetched {url} - {content_length} bytes in {duration:.2f}s")
                 return result
               
         except httpx.TimeoutException:
             duration = time.time() - start_time
             log_api_request("WebFetcher", url, 0, duration, False)
-            logger.error(f"[WebFetcher] Timeout fetching {url} after {duration:.2f}s")
+            logger.error(f"[{self.name}] Timeout fetching {url} after {duration:.2f}s")
             raise
         except httpx.HTTPStatusError as e:
             duration = time.time() - start_time
             log_api_request("WebFetcher", url, 0, duration, False)
-            logger.error(f"[WebFetcher] HTTP error fetching {url}: {e.response.status_code}")
+            logger.error(f"[{self.name}] HTTP error fetching {url}: {e.response.status_code}")
             raise
         except Exception as e:
             duration = time.time() - start_time
             log_api_request("WebFetcher", url, 0, duration, False)
-            logger.error(f"[WebFetcher] Error fetching {url}: {e}")
+            logger.error(f"[{self.name}] Error fetching {url}: {e}")
             raise
-    
-    async def fetch_html_content(self, url: str, clean_html: bool = True) -> Dict[str, Any]:
+
+    async def fetch_html_content(self, url: str, html_selectors: Dict[str, str] = {}, clean_html: bool = True, use_cache: bool = True) -> Dict[str, Any]:
         """
-        Fetch HTML content from a URL, optionally cleaning it for AI processing.
+        Fetch HTML content from a URL, optionally cleaning it and applying HTML selectors.
 
         Args:
             url (str): The URL to fetch HTML content from.
+            html_selectors (Dict[str, str], optional): CSS selectors for extracting specific HTML parts.
             clean_html (bool): Whether to clean the HTML content for AI use.
+            use_cache (bool): Whether to use cached content if available.
 
         Returns:
             Dict[str, Any]: Dictionary with:
             - content (str): Raw HTML content.
-            - cleaned_content (str): Cleaned HTML content (if requested).
-            - loaded_from_disk (bool): True if loaded from disk cache.
+            - cleaned_content (str, optional): Cleaned HTML content if requested.
             - saved_files (dict, optional): Paths to saved files if content was saved.
         """
 
         log_function_call("WebFetcher.fetch_html_content", {
-            "url": url, 
-            "clean_html": clean_html
+            "url": url,
+            "html_selectors": html_selectors,
+            "clean_html": clean_html,
+            "use_cache": use_cache
         })
         
         # Load from storage
         content = self.content_storage.load_html_content(url)
         if content:
-            logger.info(f"[WebFetcher] Using content from disk for {url}")
+            logger.info(f"[{self.name}] Using content from disk for {url}")
         
         # Fetch from web if not loaded from disk
         if "content" not in content:
-            result = await self.fetch_url(url)
-            content["content"] = result["content"]
-            content["cleaned_content"] = result.get("cleaned_content", None)
+            content = await self.fetch_url(url, use_cache)
 
         # Clean HTML if requested
         if clean_html and "cleaned_content" not in content:
-            content["cleaned_content"] = clean_html_for_ai(content["content"])
-            logger.debug(f"[WebFetcher] Generated cleaned HTML content: {len(content['content'])} -> {len(content['cleaned_content'])} chars")
+            content["cleaned_content"] = clean_html_for_ai(content["content"], html_selectors)
+            logger.debug(f"[{self.name}] Generated cleaned HTML content: {len(content['content'])} -> {len(content['cleaned_content'])} chars")
 
-        saved_files = self.content_storage.save_html_content(url, content)
+        # Save content to storage and cache
+        self.cache_manager.save_fetch_content(url, content, use_cache)
+        saved_files = self.content_storage.save_fetch_content(url, content)
         if saved_files:
             content["saved_files"] = saved_files
 
         return content
-
 
 # Global fetcher instance
 _fetcher_instance = None

@@ -123,29 +123,16 @@ async def process_recipe(url: str = Form(...)):
         logger.info(f"Processing recipe URL: {url}")
         
         # Use AI service for intelligent extraction
-        web_fetcher = get_web_fetcher()
         ai_service = get_ai_service()
-        
-        # Fetch recipe content using the web fetcher service
-        fetch_result = await web_fetcher.fetch_html_content(url, clean_html=True)
-        html_content = fetch_result.get("cleaned_content", fetch_result["content"])
-        
+                
         # Extract recipe using AI
-        recipe = await ai_service.extract_recipe_intelligently(html_content, url)
-             
-        logger.info(f"Extracted recipe: {recipe.title} with {len(recipe.ingredients)} ingredients")
-        
+        response = await ai_service.extract_recipe_intelligently(url)
+
+        logger.info(f"Extracted recipe: {response['recipe'].title} with {len(response['recipe'].ingredients)} ingredients")
+
         return APIResponse(
             success=True,
-            data={
-                "recipe": recipe,
-                "message": f"Successfully extracted recipe: {recipe.title}",
-                "fetch_info": {
-                    "from_cache": fetch_result.get("from_cache", False),
-                    "content_size": fetch_result.get("size", 0),
-                    "final_url": fetch_result.get("url", url)
-                }
-            },
+            data=response,
             timestamp=datetime.now().isoformat()
         )
         
@@ -223,7 +210,7 @@ async def search_stores(request: SearchStoresRequest):
 
         # Use AI to optimize product matching
         ai_service = get_ai_service()
-        product_results = await ai_service.search_grocery_products_intelligently(ingredients, stores)
+        product_results = await ai_service.search_grocery_products_intelligently(ingredients[0], stores)
 
 
         # optimized_results = {}
@@ -247,7 +234,7 @@ async def search_stores(request: SearchStoresRequest):
         #     )
         #     optimized_results[ingredient.name] = optimized_store_results
         
-        logger.info(f"[API]Store search completed with AI optimization")
+        logger.info(f"[API] Store search completed with AI optimization")
         
         return APIResponse(
             success=True,
@@ -260,8 +247,18 @@ async def search_stores(request: SearchStoresRequest):
         )
         
     except Exception as e:
-        logger.info(f"[API]Error searching stores: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error occurred while searching stores: {e}")
+        # Provide more user-friendly error messages
+        if "rate limit" in str(e).lower():
+            detail = "AI service rate limit exceeded. Please try again in a few moments."
+        elif "timeout" in str(e).lower():
+            detail = "AI service timeout. Please try again."
+        elif "authentication" in str(e).lower() or "api key" in str(e).lower():
+            detail = "AI service authentication error. Please check your configuration."
+        else:
+            detail = f"An error occurred while searching stores: {str(e)}"
+        
+        raise HTTPException(status_code=500, detail=detail)
 
 # @app.post("/api/optimize-shopping")
 # async def optimize_shopping(recipe_url: str = Form(...)):

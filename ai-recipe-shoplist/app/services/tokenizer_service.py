@@ -45,10 +45,12 @@ class TokenizerService:
 
         if num_tokens <= max_tokens:
             return text
+        
+        logger.warning(f"[{self.name}] Text exceeds max token limit ({num_tokens} > {max_tokens}), truncating...")
         truncated_tokens = tokens[:max_tokens]
 
         logger.info(f"[{self.name}] Text truncated from {num_tokens} to {max_tokens} tokens")
         return self.tokenizer.decode(truncated_tokens)  
     
     def __repr__(self) -> str:
-        return f"<TokenizerService(model={self.model}, encoder={TIKTOKEN_ENCODER})>"
+        return f"<TokenizerService(model={self.model}, encoder={TIKTOKEN_SETTINGS.encoder})>"

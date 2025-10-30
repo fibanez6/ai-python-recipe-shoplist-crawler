@@ -30,13 +30,16 @@ class StoreConfig:
     base_url: str
     search_url: str
     search_api_template: str
+
+    # Product URL template
     product_url_template: str
-    
+
     # Search parameters
     search_param: str = "q"
-    results_per_page: int = 20
+    search_limit_param: Optional[str] = None
+    results_per_page: int = 5
     max_pages: int = 3
-    
+
     # Request settings
     rate_limit_delay: float = 1.0
     timeout: int = 30
@@ -48,11 +51,12 @@ class StoreConfig:
     supports_click_collect: bool = True
     
     # Selectors for web scraping (CSS selectors)
-    selectors: Optional[Dict[str, str]] = None
+    html_selectors: Optional[Dict[str, str]] = None
     
     def get_search_url(self, query: str) -> str:
         """Generate search URL for a query."""
-        return f"{self.search_url}?{self.search_param}={query.replace(' ', '+')}"
+        limit = f"&{self.search_limit_param}={self.results_per_page}" if self.search_limit_param else ""
+        return f"{self.search_url}?{self.search_param}={query.replace(' ', '+')}{limit}"
     
     def get_product_url(self, product_id: str) -> str:
         """Generate product URL from template."""
@@ -74,9 +78,10 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         search_api_template="https://www.coles.com.au/api/search?q={query}",
         product_url_template="https://www.coles.com.au/search/products?q={product_id}",
         search_param="q",
+        search_limit_param=None,
         rate_limit_delay=1.5,
         price_multiplier=1.0,
-        selectors={
+        html_selectors={
             "product_title": ".product-title",
             "product_price": ".price",
             "product_image": ".product-image img",
@@ -95,9 +100,10 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         search_api_template="https://www.woolworths.com.au/api/search?q={query}",
         product_url_template="https://www.woolworths.com.au/shop/productdetails/{product_id}",
         search_param="searchTerm",
+        search_limit_param=None,
         rate_limit_delay=1.2,
         price_multiplier=1.05,
-        selectors={
+        html_selectors={
             "product_title": "[data-testid='product-title']",
             "product_price": "[data-testid='product-price']",
             "product_image": "[data-testid='product-image']",
@@ -116,15 +122,19 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         search_api_template="https://api.aldi.com.au/v3/product-search?currency=AUD&q={product_id}",
         product_url_template="https://www.aldi.com.au/product/{product_id}",
         search_param="q",
+        search_limit_param="limit",
         rate_limit_delay=2.0,  # More conservative for ALDI
         price_multiplier=0.85,  # ALDI typically cheaper
         supports_delivery=False,  # ALDI doesn't do delivery in most areas
-        selectors={
-            "product_title": ".product-tile__title",
+        results_per_page=12,
+        max_pages=1,
+        html_selectors={
+            # "product_tile": ".product-tile",
+            "product_title": ".product-tile__name",
             "product_price": ".product-tile__price",
-            "product_image": ".product-tile__image",
-            "product_brand": ".product-tile__brand",
-            "product_size": ".product-tile__unit"
+            "product_image": ".product-tile__picture",
+            "product_brand": ".product-tile__brandname",
+            "product_size": ".product-tile__unit-of-measurement"
         }
     ),
     
@@ -138,10 +148,11 @@ STORE_CONFIGS: Dict[str, StoreConfig] = {
         search_api_template="https://www.iga.com.au/api/search?q={query}",
         product_url_template="https://www.iga.com.au/product/{product_id}",
         search_param="term",
+        search_limit_param=None,
         rate_limit_delay=1.8,
         price_multiplier=1.15,  # IGA typically more expensive
         max_pages=2,  # Smaller chain, fewer results
-        selectors={
+        html_selectors={
             "product_title": ".product-name",
             "product_price": ".product-price",
             "product_image": ".product-img",

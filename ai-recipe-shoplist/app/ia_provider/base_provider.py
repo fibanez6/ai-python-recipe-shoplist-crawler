@@ -8,13 +8,6 @@ from ..config.logging_config import get_logger, log_function_call
 from ..config.store_config import StoreConfig
 from ..models import Ingredient, Product, Recipe, ShopphingCart
 from ..utils.ai_helpers import (
-    PRODUCT_MATCHING_PROMPT,
-    PRODUCT_MATCHING_SYSTEM,
-    RECIPE_EXTRACTION_PROMPT,
-    RECIPE_EXTRACTION_SYSTEM,
-    SEARCH_GROCERY_PRODUCTS_PROMPT,
-    SEARCH_GROCERY_PRODUCTS_SYSTEM,
-    format_ai_prompt,
     log_ai_chat_query,
     log_ai_chat_response,
     log_ai_token_stats,
@@ -130,22 +123,22 @@ class BaseAIProvider(ABC):
                 elif any(keyword in error_str for keyword in ["timeout", "connection"]):
                     raise NetworkError(f"{self.name} network error: {e}")
                 else:
-                    raise  # Let tenacity decide if it's retryable
-
-        if not AI_SERVICE_SETTINGS.provider_chat_enabled:
+                    raise
+                
+        if AI_SERVICE_SETTINGS.provider_chat_enabled:
+            try:
+                return await chat_completion_request()
+            except Exception as e:
+                logger.error(f"[{self.name}] OpenAI API error: {e}")
+                raise
+        else:
             logger.info(f"[{self.name}] AI provider chat calls are disabled. Skipping API call.")
             return ChatMessageResult(
                 content="",
                 parsed=None,
                 refusal="AI provider chat calls are disabled."
             )
-        else:
-            try:
-                return await chat_completion_request()
-            except Exception as e:
-                logger.error(f"[{self.name}] OpenAI API error: {e}")
-                raise
-
+            
     async def extract_recipe_data(self, html_content: str, url: str) -> Recipe:
         """Extract structured recipe data from HTML using AI."""
 
@@ -155,10 +148,23 @@ class BaseAIProvider(ABC):
         html_content = self.truncate_to_max_tokens(html_content)
 
         # Set system message
-        system = RECIPE_EXTRACTION_SYSTEM
+        system = """
+        You are an AI assistant specialized in extracting structured recipe data from web pages.
+        Your task is to analyze the provided HTML content and return a valid JSON object containing the recipe's title, ingredients (with normalized names and quantities), and instructions.
+
+        Guidelines:
+        - Output strictly valid JSON, with no extra text or comments.
+        - Normalize ingredient names and quantities.
+        - Include the recipe title, a list of ingredients (with name and quantity), and step-by-step instructions.
+        """
 
         # Use centralized prompt template
-        prompt = format_ai_prompt(RECIPE_EXTRACTION_PROMPT, html_content=html_content)
+        prompt = f"""
+        Please extract the recipe details from the following HTML content and return only a valid JSON object.
+
+        HTML content:
+        {html_content}
+        """
 
         chat_params = {
             "messages": [
@@ -177,30 +183,48 @@ class BaseAIProvider(ABC):
             # Return minimal structure if parsing fails
             return Recipe.default()
 
-    async def search_grocery_products(self, ingredients: List[Ingredient], stores: List[StoreConfig]) -> List[ShopphingCart]:
+    async def search_best_match_products(self, ingredient: Ingredient, store: StoreConfig, html_content: str) -> List[Product]:
         """Search grocery products for an ingredient using AI."""
-        logger.info(f"[{self.name}] Searching grocery products for {len(ingredients)} ingredients and {len(stores)} stores")
 
-        # Prepare store list
-        store_list = "\n".join( [store.get_store_name_and_search_url("<ingredient_name>") for store in stores] )
-        # Prepare ingredient list
-        ingredient_list = "\n".join(map(str, ingredients))
+        logger.info(f"[{self.name}] Searching grocery products for {ingredient.name} in {store.name}")
 
-
-        logger.debug(f"[{self.name}] Searching grocery products for:\n{ingredient_list}")
+        # Truncate HTML if too long
+        html_content = self.truncate_to_max_tokens(html_content)
 
         # Set system message
-        system = format_ai_prompt(SEARCH_GROCERY_PRODUCTS_SYSTEM, store_search=store_list)
+        system = f"""
+        You are an AI assistant specialized in searching and comparing grocery products online.
+        Your task is to analyze the provided list of grocery stores and ingredients, then return a structured JSON object containing the best-matched products for each ingredient.
+
+        Guidelines:
+        - Search each store for the listed ingredients, considering quantity and unit.
+        - Prioritize name similarity, product relevance, brand quality, and value for money (price vs size).
+        - Include organic or premium options where available.
+        - Round up quantities as needed to fulfill ingredient requirements.
+        - Output strictly valid JSON with no extra text or comments.
+        - If no good match is found for an ingredient, indicate it clearly in the output.
+        """
 
         # Use centralized prompt template
-        prompt = format_ai_prompt(SEARCH_GROCERY_PRODUCTS_PROMPT, ingredients=ingredient_list)
+        prompt = f"""
+        Extract grocery product information from the grocery website for a list of ingredients.
+
+        Store to search:
+        {store.name} {store.get_search_url(ingredient.name)}
+
+        Ingredients:
+        {ingredient}
+
+        HTML content:
+        {html_content}
+        """
 
         chat_params = {
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt}
             ],
-            "response_format": ShopphingCart
+            "response_format": Product
         }
         
         try:

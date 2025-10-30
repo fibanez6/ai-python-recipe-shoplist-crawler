@@ -91,7 +91,8 @@ class Recipe(BaseModel):
 
 class Product(BaseModel):
     """Represents a grocery store product."""
-    title: str = Field(..., description="Product name")
+    title: str = Field(..., description="Full product name from the store")
+    ingredient: str = Field(..., description="Associated ingredient name")
     price: float = Field(..., description="Product price")
     store: str = Field(..., description="Store name")
     url: Optional[str] = Field(None, description="Product URL")
@@ -106,6 +107,7 @@ class Product(BaseModel):
         """Returns a default example product."""
         return Product(
             title="Example Product",
+            ingredient="Example Ingredient",
             price=0.0,
             store="Example Store"
         )

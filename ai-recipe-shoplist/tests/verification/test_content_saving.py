@@ -63,7 +63,7 @@ async def test_content_saving():
             # Test content saving
             print("\n1. Testing content saving:")
             cleaned_content = fetcher._clean_html_for_ai(original_content)
-            saved_files = fetcher.content_storage.save_html_content(test_url, original_content, cleaned_content)
+            saved_files = fetcher.content_storage.save_fetch_content(test_url, original_content, cleaned_content)
             
             print(f"   📄 Original content length: {len(original_content)} chars")
             print(f"   🧹 Cleaned content length: {len(cleaned_content)} chars")

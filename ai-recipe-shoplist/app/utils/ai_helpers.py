@@ -241,55 +241,33 @@ def log_ai_chat_response(provider_name: str, response: str, logger: logging.Logg
     logger.info(f"[{provider_name}] OpenAI API call stats: {stats} ")
 
     if logger.isEnabledFor(level):
-        message = response.choices[0].message
-        content = message.parsed if hasattr(message, 'parsed') else message.content if hasattr(message, 'content') else message
-        max_length = LOG_SETTINGS.chat_message_max_length
-        if  max_length > 0:
-            content = content[:max_length] + ('...' if len(content) > max_length else '')
-        
-        logger.log(level, f"[{provider_name}] AI Response:\n\"\"\"\n{content}\n\"\"\"")
+        try:
+            message = response.choices[0].message
+            if hasattr(message, 'refusal') and message.refusal:
+                logger.log(level, f"[{provider_name}] AI Response refused: {message.refusal}")
+                return
+            elif hasattr(message, 'parsed') and message.parsed:
+                logger.log(level, f"[{provider_name}] AI Response parsed: {message.parsed}")
+                return
+            else:
+                content = message.content if hasattr(message, 'content') else message
+                max_length = LOG_SETTINGS.chat_message_max_length
+                if  max_length > 0:
+                    content = content[:max_length] + ('...' if len(content) > max_length else '')
+                
+                logger.log(level, f"[{provider_name}] AI Response:\n\"\"\"\n{content}\n\"\"\"")
+        except Exception as e:
+            logger.error(f"[{provider_name}] Error logging AI response: {e}")
+
+    if LOG_SETTINGS.chat_full_responses:
+        try:
+            logger.log(level, f"[{provider_name}] Full AI Response:\n\"\"\"\n{response}\n\"\"\"")
+        except Exception as e:
+            logger.error(f"[{provider_name}] Error logging full AI response: {e}")
+
 
 
 # Common prompt templates
-
-RECIPE_EXTRACTION_SYSTEM = """
-You are a web crawler / price comparison assistant that reads recipes online — extracts the list of ingredients and quantities and return only valid JSON.
-"""
-
-RECIPE_EXTRACTION_PROMPT = """
-Extract recipe information from this HTML content and return as JSON.
-
-Consider:
-1. Return only valid JSON
-2. No additional text
-3. Normalise ingredient names and quantities.
-
-HTML content:
-{html_content}
-
-"""
-
-SEARCH_GROCERY_PRODUCTS_SYSTEM = """
-You are a web crawler / price comparison assistant that searches for grocery products online — extracts the list of products and their details and return only valid JSON.
-
-Grocery stores to search:
-{store_search}
-"""
-
-SEARCH_GROCERY_PRODUCTS_PROMPT = """
-Extract grocery product information from the grocery website for a list of ingredients.
-
-Consider:
-1. Find each ingredient, with quantity and unit
-2. Name similarity and relevance
-3. Brand quality
-4. Value for money (price vs size)
-5. Organic/premium options
-6. Quantity should be considered rounded up
-
-Ingredients:
-{ingredients}
-"""
 
 
 PRODUCT_MATCHING_SYSTEM = "You are a grocery shopping expert. Rank products by relevance and quality."

@@ -1,9 +1,7 @@
 """AI service for intelligent web crawling and grocery search optimization."""
 
-import logging
-import os
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from ..config.logging_config import get_logger
 from ..config.pydantic_config import AI_SERVICE_SETTINGS
@@ -17,6 +15,7 @@ from ..ia_provider import (
     StubProvider,
 )
 from ..models import Ingredient, Product, Recipe, ShopphingCart
+from ..services.web_fetcher import get_web_fetcher
 from ..utils.ai_helpers import (
     RECIPE_SHOPPING_ASSISTANT_PROMPT,
     RECIPE_SHOPPING_ASSISTANT_SYSTEM,
@@ -40,8 +39,10 @@ class AIService:
     """Main AI service that manages different providers."""
     
     def __init__(self, provider: Optional[str] = None):
+        self.name = "AIService"
         self.provider_name = provider or AI_SERVICE_SETTINGS.provider
         self.provider = self._create_provider(self.provider_name)
+        self.web_fetcher = get_web_fetcher()
     
     def _create_provider(self, provider_name: str) -> BaseAIProvider:
         """Create AI provider based on configuration."""        
@@ -59,25 +60,71 @@ class AIService:
         try:
             return provider_map[provider_name]()
         except Exception as e:
-            print(f"[AIService] Error initializing {provider_name} provider: {e}")
+            print(f"[{self.name}] Error initializing {provider_name} provider: {e}")
             raise
-    
-    async def extract_recipe_intelligently(self, html_content: str, url: str) -> Recipe:
+
+    async def extract_recipe_intelligently(self, url: str) -> dict:
         """Extract recipe data using AI intelligence."""
-        print(f"[AIService] Extracting recipe using {self.provider_name} provider")
+        print(f"[{self.name}] Extracting recipe using {self.provider_name} provider")
         
         try:
+            # Fetch recipe content using the web fetcher service
+            fetch_result = await self.web_fetcher.fetch_html_content(url, clean_html=True)
+            html_content = fetch_result.get("cleaned_content", fetch_result["content"])
+
+            # Extract recipe using AI provider
             recipe: Recipe = await self.provider.extract_recipe_data(html_content, url)
-            return recipe
+            return {
+                "recipe": recipe,
+                "num_ingredients": len(recipe.ingredients),
+                "message": f"Successfully extracted recipe: {recipe.title}",
+                "fetch_info": {
+                    "from_cache": fetch_result.get("from_cache", False),
+                    "from_file_cache": fetch_result.get("loaded_content_from_disk", False),
+                    "content_size": len(fetch_result.get("content", "")),
+                    "final_url": fetch_result.get("url", url)
+                }
+            }
         except Exception as e:
-            print(f"[AIService] Error extracting recipe: {e}")
+            print(f"[{self.name}] Error extracting recipe: {e}")
             # Fallback to basic parsing
-            return Recipe.default()
+            return {
+                "recipe": Recipe.default(),
+                "message": f"Failed in extracting recipe",
+            }
+
+    async def search_grocery_products_intelligently(self, ingredient: Ingredient, stores: List[StoreConfig] = []) -> List[ShopphingCart]:
+        """Search grocery stores for deals on ingredients using AI."""
+        logger.info(f"[{self.name}] Searching grocery products for ingredients using {self.provider_name} AI provider")
+
+        # Fetch the products search results
+        carts: List[Product] = []
+        for store in stores:
+            try:
+                logger.info(f"[{self.name}] Searching products in store {store.name} from ingredient {ingredient.name}")
+                fetch_result = await self.web_fetcher.fetch_html_content(
+                    url=store.get_search_url(ingredient.name),
+                    html_selectors=store.html_selectors,
+                    clean_html=True,
+                    use_cache=False
+                )
+                # result = await self.provider.search_best_match_products(ingredient, fetch_result)
+                # if result:
+                    # carts.extend(result)
+            except Exception as e:
+                logger.error(f"[{self.name}] Error searching products in store {store.name}: {e}")
+
+        # try:
+        #     carts: List[ShopphingCart] = await self.provider.search_best_match_products(ingredient, stores)
+        #     return carts
+        # except Exception as e:
+        #     print(f"[{self.name}] Error extracting products: {e}")
+        #     return [ShopphingCart.default()]
     
     # async def optimize_product_matching(self, ingredient: Ingredient, 
     #                                   store_results: Dict[str, List[Product]]) -> Dict[str, List[Product]]:
     #     """Use AI to optimize product matching and ranking."""
-    #     print(f"[AIService] Optimizing product matching for '{ingredient.name}'")
+    #     print(f"[{self.name}] Optimizing product matching for '{ingredient.name}'")
         
     #     optimized_results = {}
         
@@ -128,7 +175,7 @@ class AIService:
     #             optimized_results[store_name] = optimized_products
                 
     #         except Exception as e:
-    #             print(f"[AIService] Error optimizing products for {store_name}: {e}")
+    #             print(f"[{self.name}] Error optimizing products for {store_name}: {e}")
     #             optimized_results[store_name] = products
         
     #     return optimized_results
@@ -141,8 +188,8 @@ class AIService:
     #     prompt = format_ai_prompt(ALTERNATIVES_PROMPT, ingredient=ingredient.name)
 
     #     if logger.isEnabledFor(logging.DEBUG):
-    #         logger.debug(f"[AIService] [suggest_alternatives] System message: {system}")
-    #         logger.debug(f"[AIService] [suggest_alternatives] User message: {prompt}")
+    #         logger.debug(f"[{self.name}] [suggest_alternatives] System message: {system}")
+    #         logger.debug(f"[{self.name}] [suggest_alternatives] User message: {prompt}")
 
     #     messages = [
     #         {"role": "system", "content": system},
@@ -156,14 +203,14 @@ class AIService:
     #         alternatives = safe_json_parse(response, fallback=[])
     #         return alternatives if isinstance(alternatives, list) else []
     #     except Exception as e:
-    #         logger.error(f"[AIService] Error suggesting alternatives: {e}")
-    #         logger.debug(f"[AIService] Raw response that failed to parse: {response[:200]}...")
+    #         logger.error(f"[{self.name}] Error suggesting alternatives: {e}")
+    #         logger.debug(f"[{self.name}] Raw response that failed to parse: {response[:200]}...")
     #         return []
 
     async def shopping_assistant(self, url: str) -> List[Product]:
         """Generate a structured shopping list using AI."""
 
-        logger.info(f"[AIService] Generating shopping list for recipe URL: {url}")
+        logger.info(f"[{self.name}] Generating shopping list for recipe URL: {url}")
 
         prompt = format_ai_prompt(RECIPE_SHOPPING_ASSISTANT_PROMPT, url=url)
 
@@ -179,19 +226,9 @@ class AIService:
             return response.content
 
         except Exception as e:
-            logger.error(f"[AIService] Error generating shopping list: {e}")
+            logger.error(f"[{self.name}] Error generating shopping list: {e}")
             return ""
 
-    async def search_grocery_products_intelligently(self, ingredients: List[Ingredient], stores: List[StoreConfig] = []) -> List[ShopphingCart]:
-        """Search grocery stores for deals on ingredients using AI."""
-        logger.info(f"[AIService] Searching grocery products for ingredients using {self.provider_name} provider")
-
-        try:
-            carts: List[ShopphingCart] = await self.provider.search_grocery_products(ingredients, stores)
-            return carts
-        except Exception as e:
-            print(f"[AIService] Error extracting products: {e}")
-            return [ShopphingCart.default()]
 
 # Global AI service instance
 ai_service = None

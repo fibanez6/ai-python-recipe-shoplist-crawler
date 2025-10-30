@@ -1,10 +1,12 @@
+import json
+
 """
 Centralized logging configuration for the AI Recipe Shoplist Crawler.
 """
 
-import json
 import logging
 import os
+from datetime import time
 from typing import Optional
 
 from rich.console import Console
@@ -15,20 +17,36 @@ class RichJSONFormatter(logging.Formatter):
     """Custom formatter that pretty-prints JSON or dict logs with Rich-compatible output."""
 
     def format(self, record: logging.LogRecord) -> str:
+        base = super().format(record)
         message = record.msg
-        # Handle dicts
+
+        # If message is a tuple/list (msg, dict), pretty-print the dict only
+        if isinstance(message, (tuple, list)) and len(message) == 2 and isinstance(message[1], dict):
+            try:
+                based_truncated = base.split(str(message))[0]
+                json_pretty = json.dumps(message[1], indent=2, ensure_ascii=False, default=str)
+                # Only print the pretty JSON, not the tuple/list as a string
+                return f"{based_truncated}{message[0]}\n{json_pretty}"
+            except Exception:
+                return base
+
+        # If message is a dict, pretty-print it only
         if isinstance(message, dict):
             try:
-                return json.dumps(message, indent=2, ensure_ascii=False, default=str)
+                based_truncated = base.split(str(message))[0]
+                json_pretty = json.dumps(message, indent=2, ensure_ascii=False, default=str)
+                # Only print the pretty JSON, not the dict as a string
+                return f"{based_truncated}\n{json_pretty}"
             except Exception:
-                pass  # fallback to string
+                return base
 
-        # Handle JSON strings
+        # If message is a JSON string, pretty-print it after the base log
         try:
             parsed = json.loads(record.getMessage())
-            return json.dumps(parsed, indent=2, ensure_ascii=False, default=str)
+            pretty = json.dumps(parsed, indent=2, ensure_ascii=False, default=str)
+            return f"{base}\n{pretty}"
         except (json.JSONDecodeError, TypeError):
-            return super().format(record)
+            return base
 
 def setup_logging(
     level: Optional[str] = None,
@@ -128,7 +146,6 @@ def setup_logging(
     
     return app_logger
 
-
 def configure_third_party_loggers(level: int = logging.WARNING) -> None:
     """
     Configure third-party library loggers to reduce noise.
@@ -152,7 +169,6 @@ def configure_third_party_loggers(level: int = logging.WARNING) -> None:
         logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
         logging.getLogger("fastapi").setLevel(logging.INFO)
 
-
 def get_logger(name: str) -> logging.Logger:
     """
     Get a logger instance for a specific module.
@@ -164,7 +180,6 @@ def get_logger(name: str) -> logging.Logger:
         Logger instance
     """
     return logging.getLogger(f"ai_recipe_shoplist.{name}")
-
 
 def set_debug_mode(enabled: bool = True) -> None:
     """
@@ -186,7 +201,6 @@ def set_debug_mode(enabled: bool = True) -> None:
     
     logger = get_logger(__name__)
     logger.info(f"Debug mode {'enabled' if enabled else 'disabled'}")
-
 
 def log_function_call(func_name: str, args: dict = None, level: int = logging.DEBUG) -> None:
     """
@@ -217,7 +231,6 @@ def log_function_call(func_name: str, args: dict = None, level: int = logging.DE
     else:
         logger.log(level, f"Function call: {func_name}()")
 
-
 def log_api_request(provider: str, endpoint: str, payload_size: int = 0, 
                    duration: float = None, success: bool = True) -> None:
     """
@@ -245,8 +258,7 @@ def log_api_request(provider: str, endpoint: str, payload_size: int = 0,
         "duration": duration,
         "status": "SUCCESS" if success else "FAILED",
     }
-    logger.info(log_entry)
-
+    logger.info((f"API Request Log:", log_entry))
 
 # Environment-based configuration constants
 LOG_DEBUG_ENABLED = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
