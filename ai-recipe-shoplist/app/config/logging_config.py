@@ -16,18 +16,17 @@ class RichJSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         message = record.msg
-
         # Handle dicts
         if isinstance(message, dict):
             try:
-                return json.dumps(message, indent=2, ensure_ascii=False)
+                return json.dumps(message, indent=2, ensure_ascii=False, default=str)
             except Exception:
                 pass  # fallback to string
 
         # Handle JSON strings
         try:
             parsed = json.loads(record.getMessage())
-            return json.dumps(parsed, indent=2, ensure_ascii=False)
+            return json.dumps(parsed, indent=2, ensure_ascii=False, default=str)
         except (json.JSONDecodeError, TypeError):
             return super().format(record)
 

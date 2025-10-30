@@ -219,7 +219,7 @@ def log_ai_chat_query(provider_name: str, chat_params: List[Dict[str, str]], log
             if LOG_SETTINGS.chat_message_single_line:
                 content = content.replace(chr(10), ' ')  # replace newlines with spaces for single line logging
 
-            logger.debug(f"[{provider_name}] Message {i+1} ({msg.get('role', 'unknown')}): \"\"\"\n{content}\n\"\"\"")
+            logger.debug(f"[{provider_name}] Message {i+1} ({msg.get('role', 'unknown')}): \n\"\"\"\n{content}\n\"\"\"")
 
 def log_ai_chat_response(provider_name: str, response: str, logger: logging.Logger, level: int = logging.DEBUG) -> None:
     """
@@ -243,10 +243,11 @@ def log_ai_chat_response(provider_name: str, response: str, logger: logging.Logg
     if logger.isEnabledFor(level):
         message = response.choices[0].message
         content = message.parsed if hasattr(message, 'parsed') else message.content if hasattr(message, 'content') else message
-        if  LOG_MAX_LENGTH > 0:
-            content = content[:LOG_MAX_LENGTH] + ('...' if len(content) > LOG_MAX_LENGTH else '')
+        max_length = LOG_SETTINGS.chat_message_max_length
+        if  max_length > 0:
+            content = content[:max_length] + ('...' if len(content) > max_length else '')
         
-        logger.log(level, f"[{provider_name}] AI Response:\"\"\"\n{content}\n\"\"\"")
+        logger.log(level, f"[{provider_name}] AI Response:\n\"\"\"\n{content}\n\"\"\"")
 
 
 # Common prompt templates
