@@ -54,7 +54,7 @@ class TokenizerService:
         logger.warning(f"[{self.name}] Text exceeds max token limit ({num_tokens} > {max_tokens}), truncating...")
         truncated_tokens = tokens[:max_tokens]
 
-        self.log_ai_token_stats(text, max_tokens)
+        self.log_ai_token_stats(text, max_tokens, max_tokens)
 
         return self.tokenizer.decode(truncated_tokens)
 

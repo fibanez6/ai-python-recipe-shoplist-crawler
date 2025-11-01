@@ -34,7 +34,7 @@ async def test_web_fetcher():
     try:
         # First fetch (should hit the network)
         logger.info("First fetch (from network):")
-        result1 = await fetcher.fetch_html_content(test_url)
+        result1 = await fetcher.fetch_html(test_url)
         
         logger.info(f"  URL: {result1['url']}")
         logger.info(f"  Status: {result1['status_code']}")
@@ -46,7 +46,7 @@ async def test_web_fetcher():
         
         # Second fetch (should hit the cache)
         logger.info("\nSecond fetch (from cache):")
-        result2 = await fetcher.fetch_html_content(test_url)
+        result2 = await fetcher.fetch_html(test_url)
         
         logger.info(f"  From cache: {result2['from_cache']}")
         logger.info(f"  Size: {result2['size']} bytes")

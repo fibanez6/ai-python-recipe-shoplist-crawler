@@ -2,6 +2,9 @@
 
 from enum import Enum
 from typing import Optional
+import traceback, pprint
+
+from app.services.web_data_service import get_web_data_service
 
 from ..config.logging_config import get_logger
 from ..config.pydantic_config import AI_SERVICE_SETTINGS
@@ -15,12 +18,12 @@ from ..ia_provider import (
     StubProvider,
 )
 from ..models import Ingredient, Product, Recipe, ShopphingCart
-from ..services.web_fetcher import get_web_fetcher
 from ..utils.ai_helpers import (
     RECIPE_SHOPPING_ASSISTANT_PROMPT,
     RECIPE_SHOPPING_ASSISTANT_SYSTEM,
     format_ai_prompt,
 )
+from ..web_extractor.html_extractor import clean_html
 
 # Get module logger
 logger = get_logger(__name__)
@@ -42,7 +45,7 @@ class AIService:
         self.name = "AIService"
         self.provider_name = provider or AI_SERVICE_SETTINGS.provider
         self.provider = self._create_provider(self.provider_name)
-        self.web_fetcher = get_web_fetcher()
+        self.web_data_service = get_web_data_service()
     
     def _create_provider(self, provider_name: str) -> BaseAIProvider:
         """Create AI provider based on configuration."""        
@@ -68,25 +71,33 @@ class AIService:
         print(f"[{self.name}] Extracting recipe using {self.provider_name} provider")
         
         try:
-            # Fetch recipe content using the web fetcher service
-            fetch_result = await self.web_fetcher.fetch_html_content(url, clean_html=True)
-            fetch_content = fetch_result.get("cleaned_content", fetch_result["content"])
+            # Get html extractor
+            html_extractor = clean_html
+
+            # Use web data service to fetch and process content
+            fetch_result = await self.web_data_service.fetch_and_process(url, html_extractor, data_format="html")
+
+            logger.debug(f"[{self.name}] Fetched and processed data: {fetch_result.keys()}")
+
+            fetch_data_processed = fetch_result.get("data")
 
             # Extract recipe using AI provider
-            recipe: Recipe = await self.provider.extract_recipe_data(fetch_content, url)
+            recipe: Recipe = await self.provider.extract_recipe_data(fetch_data_processed, url)
             return {
                 "recipe": recipe,
                 "num_ingredients": len(recipe.ingredients),
                 "message": f"Successfully extracted recipe: {recipe.title}",
                 "fetch_info": {
-                    "from_cache": fetch_result.get("from_cache", False),
-                    "from_file_cache": fetch_result.get("loaded_content_from_disk", False),
-                    "content_size": len(fetch_result.get("content", "")),
-                    "final_url": fetch_result.get("url", url)
+                    "data_from": fetch_result.get("data_from", None),
+                    "data_size": fetch_result.get("data_size", None),
+                    "data_format": fetch_result.get("data_format", None),
+                    "final_url": fetch_result.get("url", url),
+                    "timestamp": fetch_result.get("timestamp", None),
                 }
             }
         except Exception as e:
-            print(f"[{self.name}] Error extracting recipe: {e}")
+            logger.error(f"[{self.name}] Error extracting recipe: {e}")
+            logger.error("Stack trace:\n" + pprint.pformat(traceback.format_exc()))
             # Fallback to basic parsing
             return {
                 "recipe": Recipe.default(),
@@ -103,7 +114,7 @@ class AIService:
             try:
                 # Fetch search page content
                 logger.info(f"[{self.name}] Searching products in store {store.name} from ingredient {ingredient.name}")
-                fetch_result = await self.web_fetcher.fetch_html_content(url=store.get_search_url(ingredient.name), html_selectors=store.html_selectors)
+                fetch_result = await self.web_fetcher.fetch_html(url=store.get_search_url(ingredient.name), html_selectors=store.html_selectors)
                 fetch_content = fetch_result.get("cleaned_content", fetch_result["content"])
 
                 # Search for best match products using AI provider

@@ -7,22 +7,22 @@ from bs4 import BeautifulSoup, Comment
 
 from app.config.logging_config import get_logger, log_function_call, setup_logging
 
-from ..config.pydantic_config import FETCHER_SETTINGS
+from ..config.pydantic_config import WEB_DATA_SERVICE_SETTINGS
 
 # Get module logger
 logger = get_logger(__name__)
 
-def remove_html_scripts_and_styles(soup: BeautifulSoup) -> None:
+def _remove_html_scripts_and_styles(soup: BeautifulSoup) -> None:
     """Remove script and style elements from the BeautifulSoup object."""
     for element in soup(["window", "script", "noscript", "style", "nav", "header", "footer", "aside", "svg", "link", "meta"]):
         element.decompose()
 
-def remove_html_comments(soup: BeautifulSoup) -> None:
+def _remove_html_comments(soup: BeautifulSoup) -> None:
     """Remove comments from the BeautifulSoup object."""
     for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
         comment.extract()
 
-def remove_html_tags(soup: BeautifulSoup) -> None:
+def _remove_html_tags(soup: BeautifulSoup) -> None:
     """Remove empty tags from the BeautifulSoup object."""
     for element in soup.find_all():
         # Remove tags that have no text and no child elements
@@ -33,71 +33,16 @@ def remove_html_tags(soup: BeautifulSoup) -> None:
             if attr not in ['id']:
                 del element.attrs[attr]
 
-def remove_whitespaces_and_newlines(text: str) -> str:
+def _remove_whitespaces_and_newlines(text: str) -> str:
     """Remove excessive whitespace and newlines from text."""
     lines = text.splitlines()
     cleaned_lines = [line.strip() for line in lines if line.strip()]
     return ''.join(cleaned_lines)
 
-def get_text_from_html(soup: BeautifulSoup) -> str:
+def _get_text_from_html(soup: BeautifulSoup) -> str:
     """Extract only text from the BeautifulSoup object."""
     return soup.get_text(separator="\n", strip=True)
 
-def clean_html(html_content: str) -> str:
-    """
-    Clean HTML content for AI processing by removing unnecessary elements.
-    
-    Args:
-        html_content: Raw HTML content
-        
-    Returns:
-        Cleaned HTML content
-    """
-    logger = get_logger(__name__)
-        
-    try:
-        soup = BeautifulSoup(html_content, 'html.parser')
-        body = soup.find('body')
-        if body is not None:
-            soup = body
-        remove_html_scripts_and_styles(soup)
-        remove_html_comments(soup)
-        remove_html_tags(soup)
-
-        # Get cleaned text
-        cleaned = str(soup)
-        if FETCHER_SETTINGS.cleaner_html_to_text:
-            cleaned = get_text_from_html(soup)
-        else:
-            cleaned = remove_whitespaces_and_newlines(cleaned)
-        return cleaned
-    except Exception as e:
-        logger.warning(f"[WebFetcher] Error cleaning HTML: {e}, returning original content")
-        return html_content
-    
-def clean_html_with_selectors(html_content: str, selectors: dict[str, str]) -> list[dict]:
-    """
-    Clean HTML content for AI processing using specific CSS selectors.
-    
-    Args:
-        html_content: Raw HTML content
-        selectors: Dictionary of CSS selectors to extract specific parts of the HTML.   
-    Returns:
-        Cleaned HTML content
-    """
-    logger = get_logger(__name__)
-
-    log_function_call("Html_helper.clean_html_with_selectors", {
-        "html_content": html_content[:50],
-        "html_selectors": selectors
-        })
-        
-    product_tile_selector = _get_product_tile_selector(selectors)
-    if product_tile_selector:
-        filtered_selectors = {k: v for k, v in selectors.items() if k != "product_tile"}
-        return _extract_by_product_tile_selector(html_content, product_tile_selector, filtered_selectors)
-    return _extract_by_selectors(html_content, selectors)
-    
 def _get_product_tile_selector(selectors: dict[str, str]) -> str | None:
     """Get the selector for a specific product tile."""
     return selectors.get("product_tile", None)
@@ -193,38 +138,55 @@ def _extract_by_selectors(html_content: str, selectors: dict[str, str]) -> list[
         logger.warning(f"[WebFetcher] Error extracting HTML with selectors: {e}, returning original content")
         return html_content
 
-def clean_html_for_ai(html_content: str, selectors: dict[str, str]) -> str | list[dict]:
-    """Wrapper to clean HTML content for AI processing."""
-    if selectors:
-        return clean_html_with_selectors(html_content, selectors)
-    return clean_html(html_content)
+def clean_html(html_content: str) -> str:
+    """
+    Clean HTML content for AI processing by removing unnecessary elements.
 
+    Args:
+        html_content: Raw HTML content
 
-    # try:
-    #     soup = BeautifulSoup(html_content, 'html.parser')
+    Returns:
+        Cleaned HTML content as a string.
+    """
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
+        soup = soup.find('body') or soup
 
-    #     # Extract parts based on selectors
-    #     data = {}
-    #     for name, selector in selectors.items():
-    #         elements = soup.select(selector)
-    #         logger.debug(f"[WebFetcher] Selector '{name}': Found {len(elements)} elements with selector '{selector}'")
-    #         for element in elements:
-    #             if element.name == "img":
-    #                 data.setdefault(name, []).append(element.get("src", ""))
-    #             elif element.name == "a":
-    #                 data.setdefault(name, []).append(element.get("href", ""))
-    #             else:
-    #                 data.setdefault(name, []).append(element.get_text(strip=True))
+        _remove_html_scripts_and_styles(soup)
+        _remove_html_comments(soup)
+        _remove_html_tags(soup)
 
-    #     # Zip all lists together by index, combining elements from each selector
-    #     zipped = [dict(zip(data.keys(), values)) for values in zip(*data.values())]
- 
-        
-    #     if logger.isEnabledFor(logging.DEBUG):
-    #         for idx, item in enumerate(zipped):
-    #             logger.debug(f"([WebFetcher] Element {idx}: {item}")
+        if WEB_DATA_SERVICE_SETTINGS.html_to_text:
+            return _get_text_from_html(soup)
+        return _remove_whitespaces_and_newlines(str(soup))
 
-    #     return zipped
-    # except Exception as e:
-    #     logger.warning(f"[WebFetcher] Error cleaning HTML with selectors: {e}, returning original content")
-    #     return html_content
+    except Exception as e:
+        logger.warning(f"[WebFetcher] Error cleaning HTML: {e}, returning original content")
+        return html_content
+    
+def clean_html_with_selectors(html_content: str, selectors: dict[str, str]) -> list[dict]:
+    """
+    Clean and extract HTML content using specific CSS selectors.
+
+    Args:
+        html_content: Raw HTML content.
+        selectors: Dictionary of CSS selectors to extract specific parts of the HTML.
+
+    Returns:
+        List of dictionaries with extracted content.
+    """
+    log_function_call(
+        "Html_helper.clean_html_with_selectors",
+        {
+            "html_content": html_content[:50],
+            "html_selectors": selectors,
+        },
+    )
+
+    product_tile_selector = _get_product_tile_selector(selectors)
+    if product_tile_selector:
+        filtered_selectors = {
+            k: v for k, v in selectors.items() if k != "product_tile"
+        }
+        return _extract_by_product_tile_selector(html_content, product_tile_selector, filtered_selectors)
+    return _extract_by_selectors(html_content, selectors)

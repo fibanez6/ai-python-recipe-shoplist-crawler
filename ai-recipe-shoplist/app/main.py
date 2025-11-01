@@ -28,6 +28,7 @@ logger = setup_logging(
     log_file=LOG_SETTINGS.file_path
 )
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from .models import APIResponse, Ingredient, QuantityUnit, Recipe, SearchStoresRequest
@@ -38,7 +39,6 @@ from .services.bill_generator import bill_generator
 from .services.grocery_service import grocery_service
 from .services.price_optimizer import price_optimizer
 from .services.web_fetcher import get_web_fetcher
-import asyncio
 
 
 @asynccontextmanager
@@ -279,7 +279,7 @@ async def search_stores(request: SearchStoresRequest):
 #             ai_service = get_ai_service()
             
 #             # Fetch recipe content using the web fetcher service
-#             fetch_result = await web_fetcher.fetch_html_content(recipe_url, clean_html=True)
+#             fetch_result = await web_fetcher.fetch_html(recipe_url, clean_html=True)
             
 #             # Log fetch details
 #             if logger.isEnabledFor(logging.DEBUG):
@@ -414,7 +414,7 @@ async def get_fetcher_content(recipe_url: str = Form(...)):
     """Get web fetcher content."""
 
     web_fetcher = get_web_fetcher()
-    fetch_result = await web_fetcher.fetch_html_content(recipe_url, clean_html=True)
+    fetch_result = await web_fetcher.fetch_html(recipe_url, clean_html=True)
 
     return APIResponse(
         success=True,

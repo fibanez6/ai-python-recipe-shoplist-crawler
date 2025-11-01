@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from app.config.logging_config import get_logger, setup_logging
 from app.models import Ingredient, QuantityUnit  # Import Ingredient
-from app.services.content_storage import ContentStorage  # Import ContentStorage
+from app.services.storage_manager import ContentStorage  # Import ContentStorage
 from app.utils.ai_helpers import (
     INGREDIENT_NORMALIZATION_PROMPT,
     clean_json_response,

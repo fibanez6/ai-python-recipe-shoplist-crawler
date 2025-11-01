@@ -20,11 +20,16 @@ class WebFetcherSettings(BaseSettings):
         default="Mozilla/5.0 (compatible; AI-Recipe-Crawler/1.0; +https://github.com/your-repo)",
         description="User agent string for requests"
     )
-    cache_ttl: int = Field(default=3600, description="Cache TTL in seconds (1 hour)")
-    tmp_folder: str = Field(default="tmp/web_cache", description="Temporary folder for caching")
-    cleaner_html_to_text: bool = Field(default=False, description="Convert HTML to plain text for AI processing")
     
     model_config = ConfigDict(env_prefix="FETCHER_")
+
+class WebDataServiceSettings(BaseSettings):
+    """Web data service configuration settings."""
+    storage_path: Path = Field(default=Path("/tmp/web_cache"), description="Path for storing fetched web content")
+    html_to_text: bool = Field(default=False,description="Convert HTML content to text after extraction")
+
+    model_config = ConfigDict(env_prefix="WEB_DATA_SERVICE_")
+
 
 class AIProviderSettings(BaseSettings):
     """AI provider configuration settings."""
@@ -95,7 +100,7 @@ class GitHubSettings(BaseSettings):
     token: str = Field(default="", description="GitHub token")
     model: str = Field(default="gpt-4o-mini", description="GitHub model to use")
     api_url: str = Field(default="https://models.inference.ai.azure.com", description="GitHub API URL")
-    max_tokens: int = Field(default=2000, description="Maximum tokens for responses")
+    max_tokens: int = Field(default=4000, description="Maximum tokens for responses")
     temperature: float = Field(default=0.1, description="Temperature for responses")
     timeout: int = Field(default=30, description="Request timeout in seconds")
     
@@ -180,6 +185,7 @@ class AppSettings(BaseSettings):
     
     # Configuration sections
     web_fetcher: WebFetcherSettings = Field(default_factory=WebFetcherSettings)
+    web_data_service: WebDataServiceSettings = Field(default_factory=WebDataServiceSettings)
     ai_provider: AIProviderSettings = Field(default_factory=AIProviderSettings)
     openai: OpenAISettings = Field(default_factory=OpenAISettings)
     azure: AzureOpenAISettings = Field(default_factory=AzureOpenAISettings)
@@ -193,9 +199,9 @@ class AppSettings(BaseSettings):
     storage: StorageSettings = Field(default_factory=StorageSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
 
-    @field_validator('web_fetcher', 'ai_provider', 'openai', 'azure', 'ollama', 'github',
-              'logging', 'server', 'retry', 'mock', 'tiktoken', 'storage', 'cache', 
-              mode='before')
+    @field_validator('web_fetcher', 'web_data_service', 'ai_provider', 'openai', 'azure', 
+                     'ollama', 'github', 'logging', 'server', 'retry', 'mock', 'tiktoken', 
+                     'storage', 'cache', mode='before')
     @classmethod
     def ensure_settings_instances(cls, v, info):
         """Ensure all settings are properly instantiated."""
@@ -232,9 +238,13 @@ class AppSettings(BaseSettings):
     
     def get_config_summary(self) -> dict:
         """Get a summary of all configuration with sensitive data masked."""
+        
         def mask_sensitive(key: str, value: any) -> any:
             """Mask sensitive configuration values."""
             sensitive_keys = ['key', 'token', 'secret', 'password']
+            # Skip max_tokens and similar non-sensitive keys
+            if key.lower() in ['max_tokens', 'max_token']:
+                return value
             if any(sensitive in key.lower() for sensitive in sensitive_keys):
                 if isinstance(value, str) and len(value) > 0:
                     return f"{value[:8]}...{value[-4:]}" if len(value) > 12 else "***"
@@ -270,6 +280,7 @@ settings = AppSettings()
 SERVER_SETTINGS = settings.server
 
 FETCHER_SETTINGS = settings.web_fetcher
+WEB_DATA_SERVICE_SETTINGS = settings.web_data_service
 STORAGE_SETTINGS = settings.storage
 CACHE_SETTINGS = settings.cache
 
