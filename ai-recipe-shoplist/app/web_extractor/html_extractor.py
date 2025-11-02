@@ -14,37 +14,41 @@ logger = get_logger(__name__)
 
 def _remove_html_scripts_and_styles(soup: BeautifulSoup) -> None:
     """Remove script and style elements from the BeautifulSoup object."""
+    logger.debug("Removing HTML scripts and styles...")
     for element in soup(["window", "script", "noscript", "style", "nav", "header", "footer", "aside", "svg", "link", "meta"]):
         element.decompose()
 
 def _remove_html_comments(soup: BeautifulSoup) -> None:
     """Remove comments from the BeautifulSoup object."""
+    logger.debug("Removing HTML comments...")
     for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
         comment.extract()
 
 def _remove_html_tags(soup: BeautifulSoup) -> None:
     """Remove empty tags from the BeautifulSoup object."""
-    for element in soup.find_all():
+    logger.debug("Removing HTML tags...")
+    for tag in soup.find_all():
         # Remove tags that have no text and no child elements
-        if not element.get_text(strip=True) and not element.find_all():
-            element.decompose()
+        if not tag.text.strip() and not tag.contents:
+            tag.decompose()
         # Remove other unwanted attributes
-        for attr in list(element.attrs or {}):
+        for attr in list(tag.attrs or {}):
             if attr not in ['id']:
-                del element.attrs[attr]
+                del tag.attrs[attr]
 
-def _remove_whitespaces_and_newlines(text: str) -> str:
+def _remove_whitespaces_and_newlines(soup: BeautifulSoup) -> str:
     """Remove excessive whitespace and newlines from text."""
-    lines = text.splitlines()
-    cleaned_lines = [line.strip() for line in lines if line.strip()]
-    return ''.join(cleaned_lines)
+    logger.debug("Removing excessive whitespace and newlines...")
+    return ''.join(soup.prettify().split())
 
 def _get_text_from_html(soup: BeautifulSoup) -> str:
     """Extract only text from the BeautifulSoup object."""
+    logger.debug("Getting text from HTML...")
     return soup.get_text(separator="\n", strip=True)
 
 def _get_product_tile_selector(selectors: dict[str, str]) -> str | None:
     """Get the selector for a specific product tile."""
+    logger.debug("Getting product tile selector...")
     return selectors.get("product_tile", None)
 
 def _extract_by_product_tile_selector(html_content: str, product_title: str, selectors: dict[str, str]) -> list[dict]:
@@ -143,10 +147,10 @@ def clean_html(html_content: str) -> dict:
     Clean HTML content for AI processing by removing unnecessary elements.
 
     Args:
-        html_content: Raw HTML content
+        html_content: Raw HTML content.
 
     Returns:
-        Cleaned HTML content as a string.
+        Dictionary with processed format and cleaned content.
     """
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -159,7 +163,7 @@ def clean_html(html_content: str) -> dict:
         if WEB_DATA_SERVICE_SETTINGS.html_to_text:
             return {"data_processed_format": "text", "data": _get_text_from_html(soup)}
         else:
-            return {"data_processed_format": "html", "data": _remove_whitespaces_and_newlines(str(soup))}
+            return {"data_processed_format": "html", "data": _remove_whitespaces_and_newlines(soup)}
 
     except Exception as e:
         logger.warning(f"[WebFetcher] Error cleaning HTML: {e}, returning original content")

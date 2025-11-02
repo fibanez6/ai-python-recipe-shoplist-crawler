@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 
 from app.config.logging_config import setup_logging
 from app.manager.storage_manager import get_storage_manager
-from app.services.web_fetcher import get_web_fetcher
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 

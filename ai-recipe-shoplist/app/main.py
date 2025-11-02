@@ -1,6 +1,8 @@
 """Main FastAPI application for the AI Recipe Shoplist Crawler."""
 
 import json
+import pprint
+import traceback
 from datetime import datetime
 
 import uvicorn
@@ -138,6 +140,7 @@ async def process_recipe(url: str = Form(...)):
         
     except json.JSONDecodeError as e:
         logger.error(f"JSON parsing error in process_recipe: {e}")
+        logger.error("Stack trace:\n" + pprint.pformat(traceback.format_exc()))
         raise HTTPException(
             status_code=422, 
             detail="AI response was not valid JSON. This may indicate an AI service error. Please try again."
@@ -184,6 +187,7 @@ async def process_recipe_full_ai(recipe_url: str = Form(...)):
         )
     except Exception as e:
         logger.error(f"Error processing recipe: {e}")
+        logger.error("Stack trace:\n" + pprint.pformat(traceback.format_exc()))
         # Provide more user-friendly error messages
         if "rate limit" in str(e).lower():
             detail = "AI service rate limit exceeded. Please try again in a few moments."
@@ -214,8 +218,14 @@ async def search_stores(request: SearchStoresRequest):
         product_results = []
         for ingredient in ingredients:
             logger.info(f"[API] Searching stores for ingredient: {ingredient.name}")
-            products = await ai_service.search_grocery_products_intelligently(ingredient, stores)
-            product_results.extend(products)
+
+            # Search for products using AI
+            response = await ai_service.search_grocery_products_intelligently(ingredient, stores)
+
+            # Process the AI response for this ingredient
+            product_results.extend(response.get("products", []))
+
+            # Be polite to avoid rate limits
             await asyncio.sleep(0.5)
 
         # optimized_results = {}
@@ -244,8 +254,8 @@ async def search_stores(request: SearchStoresRequest):
         return APIResponse(
             success=True,
             data={
-            "stores": [store.display_name for store in stores],
-            "products": [product.display() for product in product_results]
+                "stores": [store.display_name for store in stores],
+                "products": [product.display() for product in product_results]
             },
             timestamp=datetime.now().isoformat()
         )

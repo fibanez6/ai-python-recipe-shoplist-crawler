@@ -180,24 +180,25 @@ class BaseAIProvider(ABC):
         except Exception as e:
             logger.error(f"[{self.name}] Error in extract_recipe_data: {e}")
             raise Exception("Failed to extract recipe data using AI provider.") from e
-            
-    async def search_best_match_products(self, ingredient: Ingredient, store: StoreConfig, fetch_content: list[dict]) -> list[Product]:
+
+    async def search_best_match_products(self, ingredient: Ingredient, store: StoreConfig, fetch_content: list[dict]) -> AIServiceChatResponse[Product]:
         """Search grocery products for an ingredient using AI."""
 
         logger.info(f"[{self.name}] Searching grocery products for {ingredient.name} in {store.name}")
 
         # Set system message
-        system = f"""
+        system = """
         You are an AI assistant specialized in searching and comparing grocery products online.
-        Your task is to analyze the provided list of grocery stores and ingredients, then return a structured JSON object containing the best-matched products for each ingredient.
+        Your task is to analyze the provided grocery store and ingredients, then return a structured JSON object containing the best-matched products.
 
         Guidelines:
-        - Search each store for the listed ingredients, considering quantity and unit.
-        - Prioritize name similarity, product relevance, brand quality, and value for money (price per unit) or (price vs size).
-        - Include organic or premium options where available.
-        - Round up quantities as needed to fulfill ingredient requirements.
+        - Search the store for the listed ingredient, considering quantity and unit.
+        - Prioritize name similarity, product relevance, brand quality, and value (price per unit).
+        - Include organic or premium options where applicable.
+        - Round up quantities as needed to meet ingredient requirements.
         - Output strictly valid JSON with no extra text or comments.
-        - If no good match is found for an ingredient, indicate it clearly in the output.
+        - Return the best-matched product with the quantity needed based on the ingredient.
+        - If no suitable match is found, clearly indicate this in the output.
         """
 
         # Use centralized prompt template
@@ -205,7 +206,7 @@ class BaseAIProvider(ABC):
         Extract grocery product information from the grocery website for a list of ingredients.
 
         Store to search:
-        {store.name}
+        {store.display_name} ({store.product_url_template})
 
         Ingredients:
         {ingredient}
@@ -227,12 +228,15 @@ class BaseAIProvider(ABC):
         
         try:
             response = await self.complete_chat(chat_params, max_tokens=500)
-            return response.parsed if response.parsed else []
+            return AIServiceChatResponse[Product](
+                success=response.parsed is not None,
+                content=response.content,
+                parsed=response.parsed,
+                stats=response.stats
+            )
         except Exception as e:
             logger.error(f"[{self.name}] Error in search_grocery_products: {e}")
-
-            # Return minimal structure if parsing fails
-            return []
+            raise Exception("Failed to extract product data using AI provider.") from e
 
     # async def match_products(self, ingredient: str, products: list[dict[str, Any]]) -> list[dict[str, Any]]:
     #     """Match and rank products for an ingredient using AI."""

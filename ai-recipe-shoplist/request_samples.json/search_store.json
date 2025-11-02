@@ -2,25 +2,25 @@
   "ingredients": [
     {
       "name": "tomato",
-      "quantity": 4,
-      "unit": "piece",
-      "original_text": "4 large fresh tomatoes, peeled and diced",
+      "quantity": 1,
+      "unit": "kg",
+      "original_text": "1 kg / 2 lb ripe tomatoes (~7), cut into 8 wedges, core removed",
       "optional": false,
       "category": "vegetable",
       "alternatives": null,
-      "notes": "peeled and diced",
-      "quality": "fresh",
+      "notes": "ripe",
+      "quality": null,
       "brand_preference": null
     },
     {
       "name": "cucumber",
-      "quantity": 0.5,
-      "unit": "item",
-      "original_text": "½ English cucumber, peeled and finely diced",
+      "quantity": 1,
+      "unit": "unit",
+      "original_text": "1 cucumber (20cm/8\" long), peeled and diced into 1cm / 1/2\" cubes",
       "optional": false,
-      "category": "produce",
+      "category": "vegetable",
       "alternatives": null,
-      "notes": "peeled and finely diced",
+      "notes": "peeled and diced into 1cm / 1/2\" cubes",
       "quality": null,
       "brand_preference": null
     }

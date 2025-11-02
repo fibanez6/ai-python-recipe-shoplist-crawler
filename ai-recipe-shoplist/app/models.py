@@ -95,6 +95,7 @@ class Product(BaseModel):
     ingredient: str = Field(..., description="Associated ingredient name")
     price: float = Field(..., description="Product price")
     store: str = Field(..., description="Store name")
+    quantity: int = Field(1, description="Number of units")
     url: Optional[str] = Field(None, description="Product URL")
     image_url: Optional[str] = Field(None, description="Product image URL")
     brand: Optional[str] = Field(None, description="Product brand")
@@ -117,11 +118,14 @@ class Product(BaseModel):
         """Return a dict with only selected fields."""
         return {
             "name": self.name,
+            "store": self.store,
             "price": self.price,
             "url": self.url,
             "image_url": self.image_url,
             "brand": self.brand,
             "unit_price": self.unit_price,
+            "quantity": self.quantity,
+            "reasoning": self.ia_reasoning
         }
 
 class ShopphingCart(BaseModel):

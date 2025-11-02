@@ -1,9 +1,9 @@
 """AI service for intelligent web crawling and grocery search optimization."""
 
-from enum import Enum
 import logging
+from enum import Enum
+from functools import partial
 from typing import Optional
-import traceback, pprint
 
 from app.services.web_data_service import get_web_data_service
 
@@ -24,7 +24,7 @@ from ..utils.ai_helpers import (
     RECIPE_SHOPPING_ASSISTANT_SYSTEM,
     format_ai_prompt,
 )
-from ..web_extractor.html_extractor import clean_html
+from ..web_extractor.html_extractor import clean_html, clean_html_with_selectors
 
 # Get module logger
 logger = get_logger(__name__)
@@ -94,7 +94,7 @@ class AIService:
 
             return {
                 "recipe": recipe,
-                "num_ingredients": len(recipe.ingredients),
+                "num_items": len(recipe.ingredients),
                 "message": f"Successfully extracted recipe: {recipe.title}",
                 "ai_info": {
                     "data_from": fetch_result.get("data_from", None),
@@ -106,7 +106,6 @@ class AIService:
             }
         except Exception as e:
             logger.error(f"[{self.name}] Error extracting recipe: {e}")
-            logger.error("Stack trace:\n" + pprint.pformat(traceback.format_exc()))
             # Fallback to basic parsing
             return {
                 "recipe": Recipe.default(),
@@ -119,24 +118,58 @@ class AIService:
 
         # Fetch the products search results
         products: list[Product] = []
-        for store in stores:
-            try:
-                # Fetch search page content
-                logger.info(f"[{self.name}] Searching products in store {store.name} from ingredient {ingredient.name}")
-                fetch_result = await self.web_fetcher.fetch_html(url=store.get_search_url(ingredient.name), html_selectors=store.html_selectors)
-                fetch_content = fetch_result.get("cleaned_content", fetch_result["content"])
+        stats: list[dict] = []
 
-                # Search for best match products using AI provider
-                result = await self.provider.search_best_match_products(ingredient, store, fetch_content)
-                if result:
-                    products.append(result)
-            except Exception as e:
-                logger.error(f"[{self.name}] Error searching products in store {store.name}: {e}")
-                continue
+        try:
+            for store in stores:
+                try:
+                    # Fetch search page content
+                    logger.info(f"[{self.name}] Searching products in store {store.name} from ingredient {ingredient.name}")
 
-        logger.info(f"[{self.name}] Total products found: {len(products)}")
-        return products
+                    # Get html extractor
+                    if store.search_type == "html" and store.html_selectors:
+                        data_extractor = partial(clean_html_with_selectors, selectors=store.html_selectors)
+                    else:
+                        data_extractor = clean_html
 
+                    # Use web data service to fetch and process content
+                    url = store.get_search_url(ingredient.name)
+                    fetch_result = await self.web_data_service.fetch_and_process(url, data_extractor, data_format=store.search_type)
+
+                    if "data" not in fetch_result:
+                        raise ValueError("No data found in fetched result for ingredient extraction")
+
+                    # Search for best match products using AI provider
+                    fetch_data_processed = fetch_result.get("data")
+                    result = await self.provider.search_best_match_products(ingredient, store, fetch_data_processed)
+
+                    if result.parsed:
+                        products.append(result.parsed)
+
+                except Exception as e:
+                    logger.error(f"[{self.name}] Error searching products in store {store.name}: {e}")
+                    continue
+
+            logger.info(f"[{self.name}] Total products found: {len(products)}")
+            return {
+                "products": products,
+                "num_items": len(products),
+                "message": f"Successfully extracted products from store: {store.name}",
+                # "ai_info": {
+                #     "data_from": fetch_result.get("data_from", None),
+                #     "data_size": fetch_result.get("data_size", None),
+                #     "data_format": fetch_result.get("data_format", None),
+                #     "timestamp": fetch_result.get("timestamp", None),
+                #     **(ia_response.stats or {})
+                # }
+            }
+        except Exception as e:
+            logger.error(f"[{self.name}] Error extracting products: {e}")
+            # Fallback to basic parsing
+            return {
+                "recipe": Recipe.default(),
+                "message": f"Failed in getting products for ingredient",
+            }
     
     # async def optimize_product_matching(self, ingredient: Ingredient, 
     #                                   store_results: dict[str, list[Product]]) -> dict[str, list[Product]]:

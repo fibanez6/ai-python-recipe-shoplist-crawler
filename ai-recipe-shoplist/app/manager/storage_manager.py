@@ -96,7 +96,7 @@ class StorageManager:
             # Write the content to the file
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(to_write)
-            logger.debug(f"[{self.name}] Saved content to: {file_path}")
+            logger.debug(f"[{self.name}] Saved content to file: {file_path}")
 
             # Write the metadata mapping file
             with open(mapping_path, 'w', encoding='utf-8') as f:
@@ -159,6 +159,7 @@ class StorageManager:
                 data = f.read()
 
             logger.info(f"[{self.name}] Loaded data from disk for {url} (hash: {url_hash})")
+            logger.debug(f"[{self.name}] Loaded data from file: {file_path}")
             metadata.update(LOADED_FROM_DISK)
             metadata["data"] = data
         except IOError as e:
