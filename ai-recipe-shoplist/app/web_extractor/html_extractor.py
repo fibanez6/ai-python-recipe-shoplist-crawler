@@ -161,7 +161,7 @@ def clean_html(html_content: str) -> dict:
         _remove_html_tags(soup)
 
         if WEB_DATA_SERVICE_SETTINGS.html_to_text:
-            return {"data_processed_format": "text", "data": _get_text_from_html(soup)}
+            return {"data_processed_format": "txt", "data": _get_text_from_html(soup)}
         else:
             return {"data_processed_format": "html", "data": _remove_whitespaces_and_newlines(soup)}
 

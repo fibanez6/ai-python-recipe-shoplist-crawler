@@ -201,7 +201,6 @@ class APIResponse(BaseModel):
     error: Optional[str] = Field(None, description="Error message if any")
     timestamp: str = Field(..., description="Response timestamp")
 
-
 T = TypeVar('T')
 class AIServiceChatResponse(BaseModel, Generic[T]):
     """Response from an AI service, including raw content, parsed result, refusal info, and stats."""
@@ -210,3 +209,11 @@ class AIServiceChatResponse(BaseModel, Generic[T]):
     parsed: Optional[T] = Field(None, description="Parsed result (if any)")
     refusal: Optional[Any] = Field(None, description="Refusal or error info (if any)")
     stats: Optional[dict] = Field(None, description="Additional statistics or metadata")
+
+class ChatCompletionResult(BaseModel, Generic[T]):
+    """Result of a chat completion request to an AI service."""
+    content: str
+    response: Optional[AIServiceChatResponse[T]] = Field(None, description="AI service chat response")
+    parsed: T = None
+    refusal: Any = None
+    stats: dict[str, Any] = None

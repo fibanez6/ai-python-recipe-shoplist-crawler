@@ -88,7 +88,7 @@ class AIService:
             
             # Extract recipe using AI provider
             fetch_data_processed = fetch_result.get("data")
-            ia_response: AIServiceChatResponse[Recipe] = await self.provider.extract_recipe_data(fetch_data_processed, url)
+            ia_response: AIServiceChatResponse[Recipe] = await self.provider.extract_recipe_data(fetch_data_processed)
             
             recipe: Recipe = ia_response.parsed if ia_response.parsed else Recipe.default()
 

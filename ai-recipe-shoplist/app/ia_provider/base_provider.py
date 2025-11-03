@@ -1,23 +1,26 @@
 """Base AI provider abstract class and common utilities."""
 
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import json
 from typing import Any
+
+from app.manager.cache_manager import CacheManager
+from app.manager.storage_manager import StorageManager
 
 from ..config.logging_config import get_logger
 from ..config.store_config import StoreConfig
 from ..models import AIServiceChatResponse, Ingredient, Product, Recipe, ShopphingCart
 from ..utils.ai_helpers import (
+    get_ai_token_stats,
     log_ai_chat_query,
     log_ai_chat_response,
-    get_ai_token_stats
 )
 
 # Get module logger
 logger = get_logger(__name__)
 
-from ..config.pydantic_config import AI_SERVICE_SETTINGS
+from ..config.pydantic_config import AI_SERVICE_SETTINGS, CACHE_SETTINGS, STORAGE_SETTINGS
 from ..services.tokenizer_service import TokenizerService  # Import TokenizerService
 from ..utils.retry_utils import (
     AIRetryConfig,
@@ -26,6 +29,7 @@ from ..utils.retry_utils import (
     ServerError,
     with_ai_retry,
 )
+
 
 @dataclass
 class ChatMessageResult:
@@ -39,6 +43,8 @@ class BaseAIProvider(ABC):
 
     def __init__(self):
         self.tokenizer = TokenizerService()
+        self.cache_manager = CacheManager(ttl=CACHE_SETTINGS.ai_ttl)  # Separate TTL for AI responses
+        self.content_storage = StorageManager(STORAGE_SETTINGS.base_path / "ai_cache") # Separate storage path for AI responses
 
     @property
     @abstractmethod
@@ -82,7 +88,7 @@ class BaseAIProvider(ABC):
         temperature = kwargs.get("temperature", self.temperature)
 
         @with_ai_retry(self.retry_config)
-        async def chat_completion_request():            
+        async def chat_completion_request():          
             try:
                 chat_params = {
                     "model": self.model,
@@ -130,35 +136,54 @@ class BaseAIProvider(ABC):
                     raise
                 
         try:
-            return await chat_completion_request()
+            # Check cache first
+            # Extract user message for cache key
+            data_key = next((msg["content"] for msg in params.get("messages", []) if msg.get("role") == "user"), str(params))
+            cached_response = self.cache_manager.load(data_key, alias=self.name)
+            if cached_response:
+                logger.info(f"[{self.name}] Loaded ai response from cache")
+                return cached_response.get("data")
+            
+            # Try loading from disk
+            disk_data = self.content_storage.load(data_key, alias=self.name)
+            if disk_data:
+                logger.info(f"{self.name}: Loaded ai response from storage")
+                return disk_data.get("data")
+
+            response = await chat_completion_request()
+
+            # Cache successful responses
+            if response.content:
+                self.cache_manager.save(key=data_key, data=response, alias=self.name)
+                self.content_storage.save(key=data_key, data=response, alias=self.name, format="json")
+
+            return response
         except Exception as e:
             logger.error(f"[{self.name}] OpenAI API error: {e}")
             raise
             
-    async def extract_recipe_data(self, html_content: str, url: str) -> AIServiceChatResponse[Recipe]:
+    async def extract_recipe_data(self, html_content: str) -> AIServiceChatResponse[Recipe]:
         """Extract structured recipe data from HTML using AI."""
 
-        logger.info(f"[{self.name}] Extracting recipe data from URL: {url}")
+        logger.info(f"[{self.name}] Extracting recipe data")
 
         # Set system message
-        system = """
-        You are an AI assistant specialized in extracting structured recipe data from web pages.
-        Your task is to analyze the provided HTML content and return a valid JSON object containing the recipe's title, ingredients (with normalized names and quantities), and instructions.
+        system = """You are an AI assistant specialized in extracting structured recipe data from web pages.
+Your task is to analyze the provided HTML content and return a valid JSON object containing the recipe's title, ingredients (with normalized names and quantities), and instructions.
 
-        Guidelines:
-        - Output strictly valid JSON, with no extra text or comments.
-        - Normalize ingredient names and quantities.
-        - Include the recipe title, a list of ingredients (with name and quantity), and step-by-step instructions.
-        - No ingredient should be missing or duplicated.
-        """
+Guidelines:
+- Output strictly valid JSON, with no extra text or comments.
+- Normalize ingredient names and quantities.
+- Include the recipe title, a list of ingredients (with name and quantity), and step-by-step instructions.
+- No ingredient should be missing or duplicated.
+"""
 
         # Use centralized prompt template
-        prompt = f"""
-        Please extract the recipe details from the following HTML content and return only a valid JSON object.
+        prompt = f"""Please extract the recipe details from the following HTML content and return only a valid JSON object.
 
-        HTML content:
-        {html_content}
-        """
+HTML content:
+{html_content}
+"""
 
         # Truncate prompt if too long
         prompt = self.truncate_to_max_tokens(prompt)
@@ -191,33 +216,31 @@ class BaseAIProvider(ABC):
         store_content = json.dumps(fetch_content, separators=(",", ":"))
 
         # Set system message
-        system = """
-        You are an AI assistant specialized in searching and comparing grocery products online.
-        Your task is to analyze the provided grocery store and ingredients, then return a structured JSON object containing the best-matched products.
+        system = """You are an AI assistant specialized in searching and comparing grocery products online.
+Your task is to analyze the provided grocery store and ingredients, then return a structured JSON object containing the best-matched products.
 
-        Guidelines:
-        - Search the store for the listed ingredient, considering quantity and unit.
-        - Return the best-matched product with the quantity needed based on the ingredient.
-        - Round up quantities as needed to meet ingredient requirements.
-        - Prioritize name similarity, product relevance, brand quality, and value (price per unit).
-        - Include organic or premium options where applicable.
-        - Output strictly valid JSON with no extra text or comments.
-        - If no suitable match is found, clearly indicate this in the output.
-        """
+Guidelines:
+- Search the store for the listed ingredient, considering quantity and unit.
+- Return the best-matched product with the quantity needed based on the ingredient.
+- Round up quantities as needed to meet ingredient requirements.
+- Prioritize name similarity, product relevance, brand quality, and value (price per unit).
+- Include organic or premium options where applicable.
+- Output strictly valid JSON with no extra text or comments.
+- If no suitable match is found, clearly indicate this in the output.
+"""
 
         # Use centralized prompt template
-        prompt = f"""
-        Extract grocery the best-matched product from the store content.
+        prompt = f"""Extract grocery the best-matched product from the store content.
 
-        Store to search:
-        {store.display_name} ({store.product_url_template})
+Store to search:
+{store.display_name} ({store.product_url_template})
 
-        Ingredients:
-        {ingredient}
+Ingredients:
+{ingredient}
 
-        Store content:
-        {store_content}
-        """
+Store content:
+{store_content}
+"""
 
         # Truncate prompt if too long
         prompt = self.truncate_to_max_tokens(prompt)

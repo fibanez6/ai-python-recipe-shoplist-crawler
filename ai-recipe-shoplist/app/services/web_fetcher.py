@@ -21,13 +21,12 @@ class WebFetcher:
 
         logger.info(f"[{self.name}] initialized - Timeout: {self.timeout}s, Max size: {self.max_content_size} bytes")
     
-    async def fetch_url(self, url: str, use_cache: bool = True) -> dict[str, Any]:
+    async def fetch_url(self, url: str) -> dict[str, Any]:
         """
         Fetch content from a URL with optional caching and robust error handling.
 
         Args:
             url (str): The URL to fetch.
-            use_cache (bool): Whether to use cached content if available.
 
         Returns:
             dict[str, Any]: Dictionary with:
@@ -38,7 +37,7 @@ class WebFetcher:
             - size (int): Size of the content in bytes.
             - data (str): HTML content.
         """
-        log_function_call("WebFetcher.fetch_url", {"url": url, "use_cache": use_cache})
+        log_function_call("WebFetcher.fetch_url", {"url": url})
         start_time = time.time()
 
         try:

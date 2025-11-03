@@ -20,7 +20,7 @@ class WebDataService:
 
         # Initialize cache manager and content storage
         self.cache_manager = get_cache_manager()
-        self.content_storage = get_storage_manager(WEB_DATA_SERVICE_SETTINGS.storage_path)
+        self.content_storage = get_storage_manager()
 
         # Initialize web fetcher
         self.web_fetcher = get_web_fetcher()
@@ -30,13 +30,13 @@ class WebDataService:
         # Try loading from cache
         cached_data = self.cache_manager.load(url)
         if cached_data:
-            logger.info(f"{self.name}: Loaded data from cache for {url}")
+            logger.info(f"{self.name}: Loaded source data from cache for {url}")
             return cached_data
 
         # Try loading from disk
-        disk_data = self.content_storage.load(url)
+        disk_data = self.content_storage.load(url, format=data_format)
         if disk_data:
-            logger.info(f"{self.name}: Loaded data from disk for {url}")
+            logger.info(f"{self.name}: Loaded source data from disk for {url}")
             return disk_data
 
         # Fetch from web
@@ -69,8 +69,8 @@ class WebDataService:
 
         # Save processed data to cache and disk
         if processed_data:
-            self.cache_manager.save(url, processed_data.get("data"), alias="processed", format=processed_data.get("data_processed_format"))
-            self.content_storage.save(url, processed_data.get("data"), alias="processed", format=processed_data.get("data_processed_format"))
+            self.cache_manager.save(key=url, obj=processed_data.get("data"), alias="processed", format=processed_data.get("data_processed_format"))
+            self.content_storage.save(key=url, obj=processed_data.get("data"), alias="processed", format=processed_data.get("data_processed_format"))
 
         processed_data["data_processed"] = True
         return processed_data
@@ -80,13 +80,13 @@ class WebDataService:
         log_function_call("WebDataService.fetch_and_process", {"url": url})
         try:
             # Try loading processed data from cache
-            cached_data = self.cache_manager.load(url, alias="processed")
+            cached_data = self.cache_manager.load(key=url, alias="processed")
             if cached_data:
                 logger.info(f"{self.name}: Loaded processed data from cache for {url}")
                 return cached_data
 
             # Try loading processed data from disk
-            disk_data = self.content_storage.load(url, alias="processed")
+            disk_data = self.content_storage.load(key=url, alias="processed")
             if disk_data:
                 logger.info(f"{self.name}: Loaded processed data from disk for {url}")
                 return disk_data

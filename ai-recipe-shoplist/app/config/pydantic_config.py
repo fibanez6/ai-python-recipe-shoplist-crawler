@@ -25,7 +25,6 @@ class WebFetcherSettings(BaseSettings):
 
 class WebDataServiceSettings(BaseSettings):
     """Web data service configuration settings."""
-    storage_path: Path = Field(default=Path("/tmp/web_cache"), description="Path for storing fetched web content")
     html_to_text: bool = Field(default=False, description="Convert HTML content to text after extraction")
 
     model_config = ConfigDict(env_prefix="WEB_DATA_SERVICE_")
@@ -165,9 +164,8 @@ class TiktokenSettings(BaseSettings):
 class StorageSettings(BaseSettings):
     """Storage configuration settings."""
 
-    tmp_folder: Path = Field(default=Path("tmp/web_cache"), description="Temporary folder for caching")
-    enable_saving: bool = Field(default=True, description="Enable saving original and cleaned content to disk")
-    enable_loading: bool = Field(default=True, description="Enable loading cleaned content from disk when available")
+    base_path: Path = Field(default=Path("tmp/web_cache"), description="Temporary folder for caching")
+    enabled: bool = Field(default=True, description="Enable storage to disk")
 
     model_config = ConfigDict(env_prefix="STORAGE_")
 
@@ -177,6 +175,7 @@ class CacheSettings(BaseSettings):
     enabled: bool = Field(default=True, description="Enable caching")
     ttl: int = Field(default=3600, description="Cache TTL in seconds (1 hour)")
     max_size: int = Field(default=10485760, description="Maximum cache size in bytes (10MB)")
+    ai_ttl: int = Field(default=300, description="AI response cache TTL in seconds (5 minutes)")
 
     model_config = ConfigDict(env_prefix="CACHE_")
 
