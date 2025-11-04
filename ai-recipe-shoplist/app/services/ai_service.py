@@ -18,7 +18,7 @@ from ..ia_provider import (
     OpenAIProvider,
     StubProvider,
 )
-from ..models import AIServiceChatResponse, Ingredient, Product, Recipe, ShopphingCart
+from ..models import ChatCompletionResult, Ingredient, Product, Recipe, ShopphingCart
 from ..utils.ai_helpers import (
     RECIPE_SHOPPING_ASSISTANT_PROMPT,
     RECIPE_SHOPPING_ASSISTANT_SYSTEM,
@@ -88,9 +88,10 @@ class AIService:
             
             # Extract recipe using AI provider
             fetch_data_processed = fetch_result.get("data")
-            ia_response: AIServiceChatResponse[Recipe] = await self.provider.extract_recipe_data(fetch_data_processed)
-            
-            recipe: Recipe = ia_response.parsed if ia_response.parsed else Recipe.default()
+            ia_response: ChatCompletionResult[Recipe] = await self.provider.extract_recipe_data(fetch_data_processed)
+
+            # Parse AI response into Recipe model
+            recipe = ia_response.content if isinstance(ia_response.content, Recipe) else Recipe(**ia_response.content)
 
             return {
                 "recipe": recipe,
@@ -101,7 +102,7 @@ class AIService:
                     "data_size": fetch_result.get("data_size", None),
                     "data_format": fetch_result.get("data_format", None),
                     "timestamp": fetch_result.get("timestamp", None),
-                    **(ia_response.stats or {})
+                    **(ia_response.metadata or {})
                 }
             }
         except Exception as e:
@@ -146,13 +147,16 @@ class AIService:
 
             # Search for best match products using AI provider
             fetch_data_processed = [fetch.get("data") for fetch in store_fetch_results.values()]
-            ia_response = await self.provider.search_best_match_products(ingredient, store, fetch_data_processed)
+            ia_response: ChatCompletionResult[Product] = await self.provider.search_best_match_products(ingredient, store, fetch_data_processed)
+
+            # Parse AI response into Product model
+            product = ia_response.content if isinstance(ia_response.content, Product) else Product(**ia_response.content)
 
             return {
-                "product": ia_response.parsed or None,
+                "product": product,
                 "ingredient": ingredient.name,
                 "ai_info": {
-                    **(ia_response.stats or {})
+                    **(ia_response.metadata or {})
                 }
             }
         except Exception as e:

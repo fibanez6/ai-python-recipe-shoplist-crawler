@@ -239,29 +239,7 @@ async def search_stores(request: SearchStoresRequest):
             # Be polite to avoid rate limits
             await asyncio.sleep(0.5)
 
-        # optimized_results = {}
-        
-        # for ingredient in request.ingredients:
-        #     # Convert store results to the expected format
-        #     ingredient_store_results = {}
-        #     for store_name, results in store_results.items():
-        #         ingredient_result = next(
-        #             (r for r in results if r.ingredient_name == ingredient.name),
-        #             None
-        #         )
-        #         if ingredient_result:
-        #             ingredient_store_results[store_name] = ingredient_result.products
-        #         else:
-        #             ingredient_store_results[store_name] = []
-            
-        #     # Optimize product matching with AI
-        #     optimized_store_results = await ai_service.optimize_product_matching(
-        #         ingredient, ingredient_store_results
-        #     )
-        #     optimized_results[ingredient.name] = optimized_store_results
-        
-        logger.info(f"[API] Store search completed with AI optimization")
-        
+        logger.info(f"[API] Completed store search for {len(ingredients)} ingredients")        
         return APIResponse(
             success=True,
             data={

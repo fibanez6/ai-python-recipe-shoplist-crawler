@@ -2,15 +2,13 @@
 
 import json
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any
 
 from app.manager.cache_manager import CacheManager
 from app.manager.storage_manager import StorageManager
 
 from ..config.logging_config import get_logger
 from ..config.store_config import StoreConfig
-from ..models import AIServiceChatResponse, Ingredient, Product, Recipe, ShopphingCart
+from ..models import ChatCompletionResult, Ingredient, Product, Recipe
 from ..utils.ai_helpers import (
     get_ai_token_stats,
     log_ai_chat_query,
@@ -29,14 +27,6 @@ from ..utils.retry_utils import (
     ServerError,
     with_ai_retry,
 )
-
-
-@dataclass
-class ChatMessageResult:
-    content: str
-    parsed: Any = None
-    refusal: Any = None
-    stats: dict[str, Any] = None
 
 class BaseAIProvider(ABC):
     """Complete a chat conversation using AI Models with tenacity retry logic."""
@@ -81,14 +71,35 @@ class BaseAIProvider(ABC):
 
         return self.tokenizer.truncate_to_token_limit(text, self.max_tokens)
 
-    async def complete_chat(self, params: any, **kwargs) -> ChatMessageResult:
+    def _load_from_cache_or_storage(self, key: str) -> ChatCompletionResult | None:
+        """Load AI response from cache or storage."""
+
+        # Extract user message for cache key
+        cached_response = self.cache_manager.load(key=key, alias=self.name)
+        if cached_response:
+            logger.info(f"[{self.name}] Loaded ai response from cache")
+            data_from = cached_response["data_from"]
+            chat_completion_request: ChatCompletionResult = cached_response["data"]
+            return chat_completion_request.model_copy(update={"metadata": { "data_from": data_from }})
+
+        # If not found in cache, check storage
+        disk_data = self.content_storage.load(key=key, alias=self.name, model_class=ChatCompletionResult)
+        if disk_data:
+            logger.info(f"{self.name}: Loaded ai response from storage")
+            data_from = disk_data["data_from"]
+            chat_completion_request: ChatCompletionResult = disk_data.get("data")
+            return chat_completion_request.model_copy(update={"metadata": { "data_from": data_from }})
+
+        return None
+
+    async def complete_chat(self, params: any, **kwargs) -> ChatCompletionResult:
         """Complete a chat conversation."""
 
         max_tokens = kwargs.get("max_tokens", self.max_tokens)
         temperature = kwargs.get("temperature", self.temperature)
 
         @with_ai_retry(self.retry_config)
-        async def chat_completion_request():          
+        async def chat_completion_request() -> ChatCompletionResult:
             try:
                 chat_params = {
                     "model": self.model,
@@ -101,11 +112,9 @@ class BaseAIProvider(ABC):
 
                 if not AI_SERVICE_SETTINGS.provider_chat_enabled:
                     logger.warning(f"[{self.name}] AI provider chat calls are disabled. Skipping API call.")
-                    return ChatMessageResult(
-                        content="",
-                        parsed=None,
+                    return ChatCompletionResult(
+                        success=False,
                         refusal="AI provider chat calls are disabled.",
-                        stats={}
                     )
 
                 if "response_format" in chat_params:
@@ -117,11 +126,14 @@ class BaseAIProvider(ABC):
                 
                 message = response.choices[0].message
 
-                return ChatMessageResult(
-                    content=message.content or None,
-                    parsed=getattr(message, "parsed", None),
-                    refusal=getattr(message, "refusal", None),
-                    stats=get_ai_token_stats(self.name, response)
+                metadata = get_ai_token_stats(self.name, response)
+                metadata["data_from"] = "ai_api"
+
+                return ChatCompletionResult(
+                    success=False if message.refusal else True,
+                    content=message.parsed if message.parsed else message.content,
+                    refusal=message.refusal if message.refusal else None,
+                    metadata=metadata
                 )
             except Exception as e:
                 # Convert provider-specific errors to our retry framework
@@ -137,32 +149,25 @@ class BaseAIProvider(ABC):
                 
         try:
             # Check cache first
-            # Extract user message for cache key
             data_key = next((msg["content"] for msg in params.get("messages", []) if msg.get("role") == "user"), str(params))
-            cached_response = self.cache_manager.load(data_key, alias=self.name)
-            if cached_response:
-                logger.info(f"[{self.name}] Loaded ai response from cache")
-                return cached_response.get("data")
+            cached_response = self._load_from_cache_or_storage(data_key)
             
-            # Try loading from disk
-            disk_data = self.content_storage.load(data_key, alias=self.name)
-            if disk_data:
-                logger.info(f"{self.name}: Loaded ai response from storage")
-                return disk_data.get("data")
+            if cached_response:
+                return cached_response
+            
+            # Make AI chat completion request
+            response: ChatCompletionResult = await chat_completion_request()
 
-            response = await chat_completion_request()
-
-            # Cache successful responses
-            if response.content:
-                self.cache_manager.save(key=data_key, data=response, alias=self.name)
-                self.content_storage.save(key=data_key, data=response, alias=self.name, format="json")
+            # Save responses
+            self.cache_manager.save(key=data_key, obj=response, alias=self.name)
+            self.content_storage.save(key=data_key, obj=response, alias=self.name, format="json")
 
             return response
         except Exception as e:
             logger.error(f"[{self.name}] OpenAI API error: {e}")
             raise
             
-    async def extract_recipe_data(self, html_content: str) -> AIServiceChatResponse[Recipe]:
+    async def extract_recipe_data(self, html_content: str) -> ChatCompletionResult[Recipe]:
         """Extract structured recipe data from HTML using AI."""
 
         logger.info(f"[{self.name}] Extracting recipe data")
@@ -197,18 +202,12 @@ HTML content:
         }
         
         try:
-            response = await self.complete_chat(chat_params)
-            return AIServiceChatResponse[Recipe](
-                success=response.parsed is not None,
-                content=response.content,
-                parsed=response.parsed,
-                stats=response.stats
-            )
+            return await self.complete_chat(chat_params)
         except Exception as e:
             logger.error(f"[{self.name}] Error in extract_recipe_data: {e}")
             raise Exception("Failed to extract recipe data using AI provider.") from e
 
-    async def search_best_match_products(self, ingredient: Ingredient, store: StoreConfig, fetch_content: list[dict]) -> AIServiceChatResponse[Product]:
+    async def search_best_match_products(self, ingredient: Ingredient, store: StoreConfig, fetch_content: list[dict]) -> ChatCompletionResult[Product]:
         """Search grocery products for an ingredient using AI."""
 
         logger.info(f"[{self.name}] Searching grocery products for {ingredient.name} in {store.name}")
@@ -254,13 +253,7 @@ Store content:
         }
         
         try:
-            response = await self.complete_chat(chat_params, max_tokens=500)
-            return AIServiceChatResponse[Product](
-                success=response.parsed is not None,
-                content=response.content,
-                parsed=response.parsed,
-                stats=response.stats
-            )
+            return await self.complete_chat(chat_params, max_tokens=500)
         except Exception as e:
             logger.error(f"[{self.name}] Error in search_grocery_products: {e}")
             raise Exception("Failed to extract product data using AI provider.") from e

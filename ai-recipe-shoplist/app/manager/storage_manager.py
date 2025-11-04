@@ -12,6 +12,7 @@ import joblib
 
 from ..config.logging_config import get_logger, log_function_call
 from ..config.pydantic_config import STORAGE_SETTINGS
+from ..utils.str_helpers import object_to_str
 
 logger = get_logger(__name__)
 
@@ -40,17 +41,6 @@ class StorageManager:
         else:
             logger.warning(f"[{self.name}] Storage is disabled")
 
-    def _object_to_str(self, obj: Any) -> str:
-        """Convert an object to a string representation for hashing."""
-        if hasattr(obj, 'model_dump_json'):
-            return obj.model_dump_json()
-        elif hasattr(obj, 'json'):
-            return obj.json()
-        elif hasattr(obj, '__dict__'):
-            return str(obj.__dict__)
-        else:
-            return str(obj)
-
     def _get_hash(self, key: str, alias: str) -> str:
         """Generate a hash for the key and alias to use as filename base."""
         return hashlib.md5(f"{alias}_{key}".encode()).hexdigest()
@@ -60,23 +50,26 @@ class StorageManager:
     def save_pydantic_as_json(self, obj: Any, filename: str) -> Path:
         """Save a Pydantic model as a JSON file."""
         file_path = self.base_path / f"{filename}.json"
-
-        with open(file_path, 'w', encoding='utf-8') as f:
-            # Use Pydantic's built-in JSON serialization
-            if hasattr(obj, 'model_dump_json'):
-                # Pydantic v2
-                f.write(obj.model_dump_json(indent=2))
-            elif hasattr(obj, 'json'):
-                # Pydantic v1
-                f.write(obj.json(indent=2))
-            else:
-                # Fallback for regular objects
-                json.dump(obj.dict() if hasattr(obj, 'dict') else obj, f, indent=2, default=str)
-                
-        logger.debug(f"[{self.name}] Saved Pydantic object to JSON file: {file_path}")
-        return file_path
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                # Use Pydantic's built-in JSON serialization
+                if hasattr(obj, 'model_dump_json'):
+                    # Pydantic v2
+                    f.write(obj.model_dump_json(indent=2))
+                elif hasattr(obj, 'json'):
+                    # Pydantic v1
+                    f.write(obj.json(indent=2))
+                else:
+                    # Fallback for regular objects
+                    json.dump(obj.dict() if hasattr(obj, 'dict') else obj, f, indent=2, default=str)
+                    
+            logger.debug(f"[{self.name}] Saved Pydantic object to JSON file: {file_path}")
+            return file_path
+        except Exception as e:
+            logger.error(f"[{self.name}] Error saving Pydantic object to JSON file: {file_path}")
+            raise
     
-    def load_pydantic_from_json(self, filename: str, model_class: type) -> Any:
+    def load_pydantic_from_json(self, filename: str, model_class: type = None) -> Any:
         """
         Load a Pydantic model from JSON.
         
@@ -85,64 +78,88 @@ class StorageManager:
             model_class: The Pydantic model class (e.g., Recipe, Product)
         """
         file_path = self.base_path / f"{filename}.json"
-        
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-        
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        # Create the Pydantic model from the loaded data
-        obj = model_class(**data) if isinstance(data, dict) else model_class.parse_obj(data)
-        print(f"✅ Loaded {model_class.__name__} from: {file_path}")
-        return obj
+     
+        try:      
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            # Create the Pydantic model from the loaded data
+            if model_class:
+                obj = model_class(**data) if isinstance(data, dict) else model_class.parse_obj(data)
+                logger.debug(f"✅ Loaded {model_class.__name__} from: {file_path}")
+                return obj
+            else:
+                logger.debug(f"✅ Loaded JSON data from: {file_path}")
+                return data  
+        except FileNotFoundError:
+            logger.error(f"[{self.name}] File not found: {file_path}")
+            raise
+        except Exception as e:
+            logger.error(f"[{self.name}] Error loading Pydantic object from JSON file: {file_path}")
+            raise
 
     # ===== PICKLE SERIALIZATION (For complex Python objects) =====
 
     def save_with_pickle(self, obj: Any, filename: str) -> Path:
         """Save an object using pickle serialization."""
         file_path = self.base_path / f"{filename}.pkl"
-
-        with open(file_path, 'wb') as f:
-            pickle.dump(obj, f)
-            
-        logger.debug(f"[{self.name}] Saved object to pickle file: {file_path}")
-        return file_path
+        try:
+            with open(file_path, 'wb') as f:
+                pickle.dump(obj, f)
+                
+            logger.debug(f"[{self.name}] Saved object to pickle file: {file_path}")
+            return file_path
+        except Exception as e:
+            logger.error(f"[{self.name}] Error saving pickle object to file: {file_path}: {e}")
+            raise
 
     def load_with_pickle(self, filename: str) -> Any:
         """Load an object that was saved with pickle."""
         file_path = self.base_path / f"{filename}.pkl"
-        
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-        
-        with open(file_path, 'rb') as f:
-            obj = pickle.load(f)
-        
-        print(f"✅ Loaded object with pickle from: {file_path}")
-        return obj
-    
+
+        try:    
+            with open(file_path, 'rb') as f:
+                obj = pickle.load(f)
+            
+            logger.debug(f"✅ Loaded object with pickle from: {file_path}")
+            return obj
+        except FileNotFoundError:
+            logger.error(f"[{self.name}] File not found: {file_path}")
+            raise
+        except Exception as e:
+            logger.error(f"[{self.name}] Error loading pickle object from file: {file_path}")
+            raise
+
     # ===== JOBLIB SERIALIZATION (Efficient for large objects) =====
 
     def save_with_joblib(self, obj: Any, filename: str) -> Path:
         """Save an object using joblib serialization."""
         file_path = self.base_path / f"{filename}.joblib"
 
-        joblib.dump(obj, file_path)
-        logger.debug(f"[{self.name}] Saved object to joblib file: {file_path}")
-        return file_path
+        try:
+            joblib.dump(obj, file_path)
+            
+            logger.debug(f"[{self.name}] Saved object to joblib file: {file_path}")
+            return file_path
+        except Exception as e:
+            logger.error(f"[{self.name}] Error saving joblib object to file: {file_path}")
+            raise
 
     def load_with_joblib(self, filename: str) -> Any:
         """Load an object that was saved with joblib."""
         file_path = self.base_path / f"{filename}.joblib"
-        
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-        
-        obj = joblib.load(file_path)
-        print(f"✅ Loaded object with joblib from: {file_path}")
-        return obj
-      
+
+        try:
+            obj = joblib.load(file_path)
+            logger.debug(f"✅ Loaded object with joblib from: {file_path}")
+            return obj
+        except FileNotFoundError:
+            logger.error(f"[{self.name}] File not found: {file_path}")
+            raise
+        except Exception as e:
+            logger.error(f"[{self.name}] Error loading joblib object from file: {file_path}")
+            raise
+
     # ===== CUSTOM JSON SERIALIZATION (For complex objects) =====
     
     def save_custom_json(self, obj: Any, filename: str, custom_encoder=None) -> Path:
@@ -151,38 +168,46 @@ class StorageManager:
         Useful when you need custom serialization logic.
         """
         file_path = self.base_path / f"{filename}_custom.json"
-        
-        class CustomEncoder(json.JSONEncoder):
-            def default(self, obj):
-                if custom_encoder:
-                    return custom_encoder(obj)
-                if hasattr(obj, '__dict__'):
-                    return obj.__dict__
-                if hasattr(obj, 'isoformat'):  # datetime objects
-                    return obj.isoformat()
-                return str(obj)
-        
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(obj, f, cls=CustomEncoder, indent=2, ensure_ascii=False)
-        
-        print(f"✅ Saved object with custom JSON to: {file_path}")
-        return file_path
+
+        try:
+            class CustomEncoder(json.JSONEncoder):
+                def default(self, obj):
+                    if custom_encoder:
+                        return custom_encoder(obj)
+                    if hasattr(obj, '__dict__'):
+                        return obj.__dict__
+                    if hasattr(obj, 'isoformat'):  # datetime objects
+                        return obj.isoformat()
+                    return str(obj)
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(obj, f, cls=CustomEncoder, indent=2, ensure_ascii=False)
+            
+            logger.debug(f"✅ Saved object with custom JSON to: {file_path}")
+            return file_path
+        except Exception as e:
+            logger.error(f"[{self.name}] Error saving custom JSON object to file: {file_path}")
+            raise
 
     def load_custom_json(self, filename: str, custom_decoder=None) -> Any:
         """Load objects with custom JSON decoding."""
         file_path = self.base_path / f"{filename}_custom.json"
-        
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-        
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        if custom_decoder:
-            data = custom_decoder(data)
-        
-        print(f"✅ Loaded object with custom JSON from: {file_path}")
-        return data
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            if custom_decoder:
+                data = custom_decoder(data)
+            
+            logger.debug(f"✅ Loaded object with custom JSON from: {file_path}")
+            return data
+        except FileNotFoundError:
+            logger.error(f"[{self.name}] File not found: {file_path}")
+            raise
+        except Exception as e:
+            logger.error(f"[{self.name}] Error loading custom JSON object from file: {file_path}")
+            raise
 
     # ===== STRING/TEXT SERIALIZATION =====
     def save_as_string(self, data: str, filename: str, format: str = "txt") -> Path:
@@ -190,25 +215,33 @@ class StorageManager:
         Save plain string/text data to a file.
         """
         file_path = self.base_path / f"{filename}.{format}"
-        
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(data)
-        
-        print(f"✅ Saved string data to: {file_path}")
-        return file_path
+
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(data)
+
+            logger.debug(f"✅ Saved string data to: {file_path}")
+            return file_path
+        except Exception as e:
+            logger.error(f"[{self.name}] Error saving string data to file: {file_path}")
+            raise
 
     def load_as_string(self, filename: str, format: str = "txt") -> str:
         """Load plain string/text data from a file."""
         file_path = self.base_path / f"{filename}.{format}"
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = f.read()
             
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-        
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = f.read()
-        
-        print(f"✅ Loaded string data from: {file_path}")
-        return data
+            logger.debug(f"✅ Loaded string data from: {file_path}")
+            return data
+        except FileNotFoundError:
+            logger.error(f"[{self.name}] File not found: {file_path}")
+            raise
+        except Exception as e:
+            logger.error(f"[{self.name}] Error loading string data from file: {file_path}")
+            raise
 
     def save_object_as_string(self, obj: Any, filename: str) -> Path:
         """
@@ -216,24 +249,28 @@ class StorageManager:
         Useful for debugging or simple text storage.
         """
         file_path = self.base_path / f"{filename}_str.txt"
-        
-        # Convert object to string
-        if hasattr(obj, 'model_dump_json'):
-            # Pydantic v2
-            string_data = obj.model_dump_json(indent=2)
-        elif hasattr(obj, 'json'):
-            # Pydantic v1
-            string_data = obj.json(indent=2)
-        elif hasattr(obj, '__dict__'):
-            string_data = json.dumps(obj.__dict__, indent=2, default=str)
-        else:
-            string_data = str(obj)
-        
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(string_data)
-        
-        print(f"✅ Saved object as string to: {file_path}")
-        return file_path
+
+        try:
+            # Convert object to string
+            if hasattr(obj, 'model_dump_json'):
+                # Pydantic v2
+                string_data = obj.model_dump_json(indent=2)
+            elif hasattr(obj, 'json'):
+                # Pydantic v1
+                string_data = obj.json(indent=2)
+            elif hasattr(obj, '__dict__'):
+                string_data = json.dumps(obj.__dict__, indent=2, default=str)
+            else:
+                string_data = str(obj)
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(string_data)
+            
+            logger.debug(f"✅ Saved object as string to: {file_path}")
+            return file_path
+        except Exception as e:
+            logger.error(f"[{self.name}] Error saving object as string to file: {file_path}")
+            raise
 
     def load_string_as_json(self, filename: str, model_class: type = None) -> Any:
         """
@@ -241,12 +278,16 @@ class StorageManager:
         Optionally reconstruct as Pydantic model.
         """
         file_path = self.base_path / f"{filename}_str.txt"
-        
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
-        
-        with open(file_path, 'r', encoding='utf-8') as f:
-            string_data = f.read()
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                string_data = f.read()
+        except FileNotFoundError:
+            logger.error(f"[{self.name}] File not found: {file_path}")
+            raise
+        except Exception as e:
+            logger.error(f"[{self.name}] Error loading string data from file: {file_path}")
+            raise
         
         try:
             # Try to parse as JSON
@@ -255,15 +296,14 @@ class StorageManager:
             if model_class:
                 # Reconstruct as Pydantic model
                 obj = model_class(**json_data)
-                print(f"✅ Loaded and reconstructed {model_class.__name__} from string: {file_path}")
+                logger.debug(f"✅ Loaded and reconstructed {model_class.__name__} from string: {file_path}")
                 return obj
             else:
-                print(f"✅ Loaded JSON data from string: {file_path}")
-                return json_data
-                
+                logger.debug(f"✅ Loaded JSON data from string: {file_path}")
+                return json_data  
         except json.JSONDecodeError:
             # Return as plain string if not valid JSON
-            print(f"✅ Loaded plain string data from: {file_path}")
+            logger.debug(f"✅ Loaded plain string data from: {file_path}")
             return string_data
 
     # ===== Metadata Management =====
@@ -272,33 +312,42 @@ class StorageManager:
         """Save metadata dictionary to a JSON file."""
         metadata_path = self.base_path / f"{filename}_metadata.json"
 
-        metadata = {
-            "filename": filename,
-            "alias": alias,
-            "timestamp": time.time(),
-            "file_path": str(file_path),
-            "data_size": f"{obj_size} bytes ({obj_size/1024:.2f} KB)",
-            "data_format": format
-        }
+        try:
+            metadata = {
+                "filename": filename,
+                "alias": alias,
+                "timestamp": time.time(),
+                "file_path": str(file_path),
+                "data_size": f"{obj_size} bytes ({obj_size/1024:.2f} KB)",
+                "data_format": format
+            }
 
-        with open(metadata_path, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, ensure_ascii=False, indent=2)
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, ensure_ascii=False, indent=2)
 
-        logger.debug(f"[{self.name}] Saved metadata to JSON file: {metadata_path}")
-        return metadata
+            logger.debug(f"[{self.name}] Saved metadata to JSON file: {metadata_path}")
+            return metadata
+        except Exception as e:
+            logger.error(f"[{self.name}] Error saving metadata to JSON file: {metadata_path}: {e}")
+            return None
 
     def _load_metadata(self, filename: str) -> dict:
         """Load metadata dictionary from a JSON file."""
         metadata_path = self.base_path / f"{filename}_metadata.json"
 
-        if not metadata_path.exists():
-            raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
+        try:
+            with open(metadata_path, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
 
-        with open(metadata_path, 'r', encoding='utf-8') as f:
-            metadata = json.load(f)
-
-        logger.debug(f"[{self.name}] Loaded metadata from JSON file: {metadata_path}")
-        return metadata
+            logger.debug(f"[{self.name}] Loaded metadata from JSON file: {metadata_path}")
+            return metadata
+        
+        except FileNotFoundError:
+            logger.error(f"[{self.name}] Metadata file not found: {metadata_path}")
+            return None
+        except Exception as e:
+            logger.error(f"[{self.name}] Error loading metadata from JSON file: {metadata_path}: {e}")
+            return None
 
     # ===== GENERIC SAVE/LOAD  =====
 
@@ -321,12 +370,13 @@ class StorageManager:
         if not self.enabled:
             return None
 
-        obj_str = self._object_to_str(obj)
+        obj_str = object_to_str(obj)
         obj_size = sys.getsizeof(obj_str)
+        obj_type = type(obj).__name__
 
         log_function_call("StorageManager.save", {
             "data_preview": obj_str[:20] + ("..." if len(obj_str) > 20 else ""),
-            "data_type": type(obj).__name__,
+            "data_type": obj_type,
             "alias": alias,
             "format": format,
             "path": str(self.base_path)
@@ -342,7 +392,7 @@ class StorageManager:
         
         try:
             # Dispatch to the appropriate save format
-            if format == "json":
+            if format == "json" or format == "pydantic" or format == "dict":
                 file_path = self.save_pydantic_as_json(obj, filename)
             elif format == "pickle":
                 file_path = self.save_with_pickle(obj, filename)
@@ -353,20 +403,18 @@ class StorageManager:
                 file_path = self.save_custom_json(obj, filename, custom_encoder)
             elif format == "html":
                 file_path = self.save_as_string(obj, filename, format="html")
-            elif format == "string":
+            else:
                 if isinstance(obj, str):
                     file_path = self.save_as_string(obj, filename)
                 else:
                     file_path = self.save_object_as_string(obj, filename)
-            else:
-                file_path = self.save_as_string(obj, filename)
 
             # Prepare metadata
             metadata = self._save_metadata(filename, file_path, alias, obj_size, format)
             logger.info(f"[{self.name}] Saved content to {file_path} and alias '{alias}'")
             return metadata
-        except IOError as e:
-            logger.warning(f"[{self.name}] Error saving content to disk for {filename}: {e}")
+        except Exception as e:
+            logger.error(f"[{self.name}] Error saving content to disk for {filename}: {e}")
             return None
 
     def load(self, key: str, alias: str = SOURCE_ALIAS, format: str = None, **kwargs) -> Optional[dict]:
@@ -404,11 +452,12 @@ class StorageManager:
                 format = format.lower()
 
             # Dispatch to the appropriate load format
-            if format == "json":
+            if format == "json" or format == "pydantic" or format == "dict":
                 model_class = kwargs.get('model_class')
-                if not model_class:
-                    raise ValueError("model_class is required for JSON deserialization")
-                obj = self.load_pydantic_from_json(filename, model_class)
+                if model_class:
+                    obj = self.load_pydantic_from_json(filename, model_class)
+                else:
+                    obj = self.load_pydantic_from_json(filename)
             elif format == "pickle":
                 obj = self.load_with_pickle(filename)
             elif format == "joblib":
@@ -418,14 +467,12 @@ class StorageManager:
                 obj = self.load_custom_json(filename, custom_decoder)
             elif format == "html":
                 obj = self.load_as_string(filename, format="html")
-            elif format == "string":
+            else:
                 model_class = kwargs.get('model_class', None)
                 if model_class:
                     obj = self.load_string_as_json(filename, model_class)
                 else:
                     obj = self.load_as_string(filename)
-            else:
-               obj = self.load_as_string(filename)
 
             # Update metadata with loaded data info
             metadata["data_from"] = "local_disk"
@@ -440,7 +487,7 @@ class StorageManager:
             logger.warning(f"[{self.name}] Error reading content file for {filename} in path {self.base_path} (alias='{alias}'): {e}")
             return None
         except Exception as e:
-            logger.warning(f"[{self.name}] Unexpected error loading content for {filename} in path {self.base_path} (alias='{alias}'): {e}")
+            logger.error(f"[{self.name}] Unexpected error loading content for {filename} in path {self.base_path} (alias='{alias}'): {e}")
             return None
 
     # ===== Clear Storage =====

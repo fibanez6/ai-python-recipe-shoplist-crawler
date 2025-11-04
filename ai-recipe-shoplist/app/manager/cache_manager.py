@@ -9,6 +9,7 @@ from cachetools import TTLCache
 
 from ..config.logging_config import get_logger, log_function_call
 from ..config.pydantic_config import CACHE_SETTINGS
+from ..utils.str_helpers import object_to_str
 
 logger = get_logger(__name__)
 
@@ -31,17 +32,6 @@ class CacheManager:
         else:
             logger.warning(f"[{self.name}] Caching is disabled")
         
-    def _object_to_str(self, obj: Any) -> str:
-        """Convert an object to a string representation for hashing."""
-        if hasattr(obj, 'model_dump_json'):
-            return obj.model_dump_json()
-        elif hasattr(obj, 'json'):
-            return obj.json()
-        elif hasattr(obj, '__dict__'):
-            return str(obj.__dict__)
-        else:
-            return str(obj)
-
     def _get_hash(self, key: str, alias: str) -> str:
         """Generate a hash for the key and alias to use as cache_key."""
         return hashlib.md5(f"{alias}_{key}".encode()).hexdigest()
@@ -53,7 +43,7 @@ class CacheManager:
         if not self.enabled:
             return None
         
-        obj_str = self._object_to_str(obj)
+        obj_str = object_to_str(obj)
         obj_size = sys.getsizeof(obj_str)
         
         log_function_call("CacheManager.save", {
