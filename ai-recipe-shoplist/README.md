@@ -1,18 +1,42 @@
 # AI Recipe Shoplist Crawler
 
-An intelligent Python 3.11+ application that crawls recipe websites, extracts ingredients using AI, searches multiple grocery stores for the best prices, and generates detailed shopping bills with cost optimization.
+An intelligent Python 3.11+ application that crawls recipe websites, extracts ingredients using AI, and searches multiple grocery stores for products. This application demonstrates AI-powered recipe analysis and grocery store product matching.
+
+> **📋 Note**: This project is currently under active development. Features and functionality are being continuously improved and expanded.
 
 ## 🚀 Features
 
 - 🤖 **AI-Powered Recipe Extraction**: Uses OpenAI, Azure OpenAI, Ollama, or GitHub Models to intelligently parse recipe websites
-- 🛒 **Multi-Store Price Comparison**: Searches Coles, Woolworths, ALDI, and IGA for best prices (mock implementation)
-- 🧠 **Smart Optimization**: AI-enhanced price optimization across multiple stores
-- 🧾 **Bill Generation**: Creates formatted receipts in PDF, HTML, and JSON formats
+- 🛒 **Multi-Store Product Search**: Searches Coles, Woolworths, ALDI, and IGA for products based on ingredients
+- 🧠 **Smart Product Matching**: AI-enhanced product matching across multiple stores
 - 🌐 **Modern Web Interface**: FastAPI-based web application with responsive design
 - 📱 **Mobile-Friendly**: Works seamlessly on desktop and mobile devices
 - ⚙️ **Type-Safe Configuration**: Pydantic-based configuration with validation and type checking
 - 🔄 **Robust Error Handling**: Automatic retry logic with exponential backoff
 - 📊 **Comprehensive Logging**: Structured logging with configurable levels and file output
+
+## 📱 Application Screenshots
+
+### Initial Recipe Input Form
+<div align="center">
+   <img src="doco/img/shopping_list_form.png" alt="Shopping List Form" width="75%">
+</div>
+
+*The main interface where users enter a recipe URL to begin the ingredient extraction process.*
+
+### Example Recipe - Gazpacho
+<div align="center">
+   <img src="doco/img/gazpacho_recipe.png" alt="Gazpacho Recipe" width="50%">
+</div>
+
+*Example recipe processing using [Gazpacho from RecipeTin Eats](https://www.recipetineats.com/gazpacho/) - demonstrating AI-powered ingredient extraction from recipe websites.*
+
+### Search Results Display
+<div align="center">
+   <img src="doco/img/shopping_list_results.png" alt="Shopping List Results" width="75%">
+</div>
+
+*Results showing extracted ingredients and matched products from various grocery stores.*
 
 ## 🏗️ Architecture
 
@@ -24,26 +48,40 @@ ai-recipe-shoplist/
 │   ├── models.py                   # Pydantic data models
 │   ├── config/
 │   │   ├── pydantic_config.py      # Type-safe configuration management
-│   │   └── logging_config.py       # Logging configuration
+│   │   ├── logging_config.py       # Logging configuration
+│   │   └── store_config.py         # Store configuration management
 │   ├── services/
 │   │   ├── ai_service.py           # AI provider management
 │   │   ├── web_fetcher.py          # Web content fetching
-│   │   ├── recipe_service.py       # Recipe processing
-│   │   └── shopper_service.py      # Shopping optimization
+│   │   ├── web_data_service.py     # Web data processing
+│   │   ├── grocery_service.py      # Grocery store management
+│   │   └── store_crawler.py        # Store crawling services
 │   ├── ia_provider/
 │   │   ├── base_provider.py        # Base AI provider class
 │   │   ├── openai_provider.py      # OpenAI implementation
 │   │   ├── azure_provider.py       # Azure OpenAI implementation
 │   │   ├── ollama_provider.py      # Ollama implementation
-│   │   └── github_provider.py      # GitHub Models implementation
+│   │   ├── github_provider.py      # GitHub Models implementation
+│   │   └── stub_provider.py        # Stub implementation for testing
+│   ├── web_extractor/
+│   │   └── html_extractor.py       # HTML content extraction
 │   ├── templates/
-│   │   └── index.html             # Web interface
-│   └── static/
-│       ├── style.css              # Styling
-│       └── img/                   # Images
+│   │   └── index.html             # Web interface template
+│   ├── static/
+│   │   ├── style.css              # Styling
+│   │   └── app.js                 # Frontend JavaScript
+│   └── utils/
+│       ├── ai_helpers.py          # AI utility functions
+│       ├── html_helpers.py        # HTML processing utilities
+│       └── str_helpers.py         # String processing utilities
+├── doco/
+│   └── img/                       # Documentation images
+├── stub_responses/                # Mock AI responses for testing
+├── tests/                         # Test suite
 ├── .env                          # Environment configuration
 ├── requirements.txt              # Dependencies
 ├── pyproject.toml               # Python 3.11+ project config
+├── start.sh                     # Startup script
 └── README.md                    # This file
 ```
 
@@ -185,21 +223,40 @@ chmod +x start.sh
    - Food.com  
    - BBC Good Food
    - Any recipe site with structured data
-3. **Click "Process Recipe"** to extract ingredients
-4. **Review optimization results** showing best prices across stores
-5. **Generate bills** in PDF, HTML, or JSON format
+3. **Click "Process Recipe"** to extract ingredients using AI
+4. **Review extracted ingredients** and search for products in grocery stores
+5. **View product matches** across different stores
 
 ### API Endpoints
 
-The application provides a RESTful API:
+The application provides a RESTful API with the following main endpoints:
 
+#### Core Functionality
 - `GET /` - Web interface
-- `POST /api/process-recipe` - Extract recipe from URL
-- `POST /api/optimize-shopping` - Complete optimization pipeline
-- `POST /api/generate-bill` - Create shopping bill
-- `GET /api/demo` - Load demo recipe
-- `GET /api/stores` - List available stores
-- `GET /api/docs` - API documentation
+- `GET /health` - Health check endpoint
+- `POST /api/process-recipe` - Extract recipe ingredients from URL using AI
+- `POST /api/process-recipe-ai` - Alternative AI-powered recipe processing
+- `POST /api/search-stores` - Search grocery stores for specific ingredients
+
+#### Utility Endpoints
+- `POST /api/fetcher` - Get web content fetching details
+- `GET /api/fetcher-stats` - Get web fetcher cache statistics
+- `POST /api/clear-fetcher-cache` - Clear the web fetcher cache
+- `POST /api/clear-content-files` - Clear saved content files
+- `GET /api/stores` - List available grocery stores
+- `GET /api/stores/{store_id}` - Get details for a specific store
+- `GET /api/demo` - Load demo recipe data
+- `GET /api/docs` - Interactive API documentation
+- `GET /api/redoc` - Alternative API documentation
+
+### Current Functionality
+
+The application currently provides:
+
+1. **Recipe Processing**: Extract ingredients from recipe URLs using AI
+2. **Store Integration**: Connect with multiple grocery store configurations (Coles, Woolworths, ALDI, IGA)
+3. **Product Matching**: Use AI to match extracted ingredients with store products
+4. **Web Interface**: User-friendly interface for recipe input and result display
 
 ### Demo Mode
 
@@ -208,7 +265,7 @@ Try the demo with a sample recipe:
 curl -X POST "http://localhost:8000/api/demo"
 ```
 
-Or click "Try Demo" in the web interface.
+Or use the web interface for an interactive experience.
 
 ## 🔧 Configuration
 
@@ -317,11 +374,23 @@ print(FETCHER_TIMEOUT)
 
 ### Store Configuration
 
-Currently uses mock adapters for demonstration. For production:
+The application supports multiple grocery stores with configurable adapters:
 
-1. Replace mock adapters in `app/services/store_crawler.py`
-2. Implement real store APIs or web scrapers
-3. Add store API keys to environment variables
+- **Coles**: Australian supermarket chain
+- **Woolworths**: Australian supermarket chain  
+- **ALDI**: International discount supermarket
+- **IGA**: Independent Grocers of Australia
+
+Store configurations include:
+- Search URL patterns
+- HTML selectors for product extraction
+- Product page URL patterns
+- Store-specific data processing
+
+For production use:
+1. Configure store-specific search mechanisms in `app/config/store_config.py`
+2. Implement real web scraping or API integration
+3. Add store API keys to environment variables if required
 
 ## 🧪 Development
 
@@ -346,39 +415,59 @@ mypy app/
 
 ### Adding New Features
 
-1. **New Recipe Sites**: Extend web fetching and parsing in `web_fetcher.py`
+1. **New Recipe Sites**: Extend web fetching and parsing in `web_data_service.py` and `html_extractor.py`
 2. **New AI Providers**: Implement `BaseAIProvider` in `ia_provider/` directory
 3. **New Configuration**: Add settings to `pydantic_config.py` with proper validation
 4. **New Services**: Create new services in `services/` directory with proper logging
+5. **New Stores**: Add store configurations in `config/store_config.py`
 
-## 📊 Optimization Strategies
+## 📊 Current Implementation
 
-The system uses multiple optimization strategies:
+The system currently implements:
 
-1. **Single Store**: Find cheapest single store option
-2. **Multi-Store**: Optimize across all stores (may require multiple trips)
-3. **AI-Enhanced**: Use AI to consider quality, travel costs, and substitutions
+1. **AI-Powered Recipe Extraction**: Intelligently extracts ingredients, quantities, and units from recipe websites
+2. **Multi-Store Integration**: Connects to multiple grocery store configurations with customizable search patterns
+3. **Product Matching**: Uses AI to match extracted ingredients with available store products
+4. **Web Interface**: Provides an intuitive interface for recipe processing and result visualization
 
-The AI optimizer considers:
-- Product quality and brand reputation
-- Travel costs between stores
-- Bulk buying opportunities  
-- Suitable ingredient substitutions
+### Data Flow
 
-## 🎯 Example Workflow
-
-1. **Input**: `https://allrecipes.com/recipe/123/chicken-stir-fry`
+1. **Input**: Recipe URL (e.g., `https://allrecipes.com/recipe/123/chicken-stir-fry`)
 2. **AI Extraction**: 
    - Chicken breast (2 pieces)
    - Mixed vegetables (2 cups)
    - Soy sauce (3 tbsp)
    - Rice (1 cup)
-3. **Store Search**:
-   - Coles: Chicken $8.99, Vegetables $4.50, Soy sauce $3.20, Rice $2.80
-   - Woolworths: Chicken $9.50, Vegetables $4.20, Soy sauce $3.50, Rice $2.90
-   - ALDI: Chicken $7.99, Vegetables $3.80, Soy sauce $2.90, Rice $2.50
-4. **Optimization**: Mix of ALDI (cheaper) + travel costs vs single store
-5. **Bill Generation**: PDF receipt with itemized costs and store breakdown
+3. **Store Search**: Query configured stores for matching products
+4. **Product Matching**: AI analyzes and matches products to ingredients
+5. **Results Display**: Present matched products with store information
+
+### Example Workflow
+
+```python
+# 1. Process Recipe URL
+POST /api/process-recipe
+{
+  "url": "https://allrecipes.com/recipe/123/chicken-stir-fry"
+}
+
+# 2. Search Stores for Ingredients
+POST /api/search-stores
+{
+  "ingredients": [
+    {"name": "chicken breast", "quantity": 2, "unit": "piece"},
+    {"name": "mixed vegetables", "quantity": 2, "unit": "cup"}
+  ],
+  "stores": ["coles", "woolworths", "aldi"]
+}
+
+# 3. View Results
+{
+  "products": [...],
+  "stores": ["Coles", "Woolworths", "ALDI"],
+  "ai_info": {...}
+}
+```
 
 ## 🚀 Deployment
 
@@ -465,16 +554,25 @@ pip install -r requirements.txt --force-reinstall
 - For production, implement request queuing to stay within limits
 
 **No Products Found**
-- Currently using mock data - this is expected
-- Implement real store APIs for production use
+- This indicates the AI product matching didn't find suitable matches
+- Check ingredient names are clear and specific
+- Verify store configurations are properly set up
+- Try different ingredient variations
 
-**Bill Generation Fails**
-- Install ReportLab: `pip install reportlab`
-- Check file permissions in `generated_bills/` directory
+**Recipe Extraction Fails**
+- Ensure the recipe URL is accessible and contains structured recipe data
+- Some sites may require specific parsing logic
+- Check the AI provider is working correctly with a simple test
+
+**Store Search Issues**
+- Verify store configurations in `app/config/store_config.py`
+- Check if the stores are accessible and responding
+- Review logs for specific error messages during store searches
 
 **Web Interface Not Loading**
 - Ensure templates and static directories exist
 - Check FastAPI is serving static files correctly
+- Verify all dependencies are installed
 
 ### Getting Help
 
@@ -484,7 +582,9 @@ pip install -r requirements.txt --force-reinstall
 
 ## 🔮 Roadmap
 
-- [ ] Real grocery store API integration
+- [ ] Real grocery store API integration and web scraping
+- [ ] Price comparison and optimization algorithms
+- [ ] Shopping cart and bill generation features
 - [ ] Machine learning for better ingredient matching
 - [ ] Multi-currency support
 - [ ] Nutritional information integration
@@ -492,8 +592,17 @@ pip install -r requirements.txt --force-reinstall
 - [ ] Mobile app development
 - [ ] Meal planning features
 - [ ] Integration with shopping list apps
+- [ ] Bulk purchasing recommendations
+- [ ] Store location and proximity optimization
 
 ## 🆕 Recent Updates
+
+### v2.1 - Enhanced Grocery Store Integration
+- **Multi-Store Support**: Added support for Coles, Woolworths, ALDI, and IGA with configurable search patterns
+- **Improved Product Matching**: Enhanced AI-powered product matching across multiple stores
+- **Store Configuration**: Flexible store configuration system with HTML selectors and search patterns
+- **Web Data Service**: New service layer for web content fetching and processing
+- **Better Error Handling**: Improved error handling for store searches and product matching
 
 ### v2.0 - Modern Configuration & Type Safety
 - **Pydantic Settings**: Migrated from manual environment variable handling to type-safe Pydantic configuration
