@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup, Comment
 
 from app.config.logging_config import get_logger, log_function_call, setup_logging
 
-from ..config.pydantic_config import WEB_DATA_SERVICE_SETTINGS
+from ..config.pydantic_config import WEB_SCRAPER_SETTINGS
 
 # Get module logger
 logger = get_logger(__name__)
@@ -160,7 +160,7 @@ def clean_html(html_content: str) -> dict:
         _remove_html_comments(soup)
         _remove_html_tags(soup)
 
-        if WEB_DATA_SERVICE_SETTINGS.html_to_text:
+        if WEB_SCRAPER_SETTINGS.html_to_text:
             return {"data_processed_format": "txt", "data": _get_text_from_html(soup)}
         else:
             return {"data_processed_format": "html", "data": _remove_whitespaces_and_newlines(soup)}

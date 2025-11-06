@@ -7,7 +7,7 @@ from .ai_helpers import (
     normalize_ai_response,
     safe_json_parse,
 )
-from .retry_utils import (  # Core classes; Error types; Functions; Provider-specific configs
+from .retry_utils import (
     AIRetryConfig,
     NetworkError,
     RateLimiter,
@@ -15,10 +15,6 @@ from .retry_utils import (  # Core classes; Error types; Functions; Provider-spe
     RetryableError,
     ServerError,
     create_ai_retry_config,
-    create_azure_retry_config,
-    create_github_retry_config,
-    create_ollama_retry_config,
-    create_openai_retry_config,
     is_retryable_error,
     retry_with_tenacity,
     with_ai_retry,
@@ -27,24 +23,19 @@ from .retry_utils import (  # Core classes; Error types; Functions; Provider-spe
 __all__ = [
     # AI utilities
     "clean_json_response",
-    "safe_json_parse",
     "extract_json_from_text",
-    "normalize_ai_response",
     "format_ai_prompt",
-    # Retry utilities (tenacity-based)
-    "RateLimiter",
+    "normalize_ai_response",
+    "safe_json_parse",
+    # Retry utilities
     "AIRetryConfig",
-    "HTTPRetryClient",
-    "RetryableError",
+    "NetworkError", 
     "RateLimitError",
+    "RateLimiter",
+    "RetryableError",
     "ServerError",
-    "NetworkError",
     "create_ai_retry_config",
+    "is_retryable_error",
     "retry_with_tenacity",
     "with_ai_retry",
-    "is_retryable_error",
-    "create_github_retry_config",
-    "create_openai_retry_config",
-    "create_azure_retry_config",
-    "create_ollama_retry_config"
 ]

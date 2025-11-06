@@ -4,19 +4,18 @@ import logging
 from app.services.web_fetcher import get_web_fetcher
 
 from ..config.logging_config import get_logger, log_function_call
-from ..config.pydantic_config import WEB_DATA_SERVICE_SETTINGS
+from ..config.pydantic_config import WEB_SCRAPER_SETTINGS
 from ..manager.cache_manager import get_cache_manager
 from ..manager.storage_manager import get_storage_manager
-from ..utils.html_helpers import clean_html_for_ai
 
 logger = get_logger(__name__)
 
 
-class WebDataService:
+class WebScraper:
     """Service for processing data with caching and error handling."""
     
     def __init__(self):
-        self.name = "WebDataService"
+        self.name = "WebScraper"
 
         # Initialize cache manager and content storage
         self.cache_manager = get_cache_manager()
@@ -108,12 +107,12 @@ class WebDataService:
             logger.error(f"[{self.name}] Error fetching or processing data for {url}: {e}")
             raise
 
-# Global web data service instance
-_web_data_service_instance = None
+# Global web scraper instance
+_web_scraper_instance = None
 
-def get_web_data_service() -> WebDataService:
-    """Get or create the global web data service instance."""
-    global _web_data_service_instance
-    if _web_data_service_instance is None:
-        _web_data_service_instance = WebDataService()
-    return _web_data_service_instance
+def get_web_scraper() -> WebScraper:
+    """Get or create the global web scraper instance."""
+    global _web_scraper_instance
+    if _web_scraper_instance is None:
+        _web_scraper_instance = WebScraper()
+    return _web_scraper_instance

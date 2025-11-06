@@ -75,7 +75,7 @@ STORE_CONFIGS: dict[str, StoreConfig] = {
         base_url="https://www.coles.com.au",
         search_url="https://www.coles.com.au/search/products",
         # search_api_template="https://www.coles.com.au/api/graphql",
-        search_api_template="https://www.coles.com.au/_next/data/20251029.1-5acc651e3b5f8a27a9fa067cf11fc08619865a7b/en/search/products.json?q=tomato",
+        search_api_template="https://www.coles.com.au/_next/data/20251029.1-5acc651e3b5f8a27a9fa067cf11fc08619865a7b/en/search/products.json?q={product_id}",
         product_url_template="https://www.coles.com.au/product/{product_id}",
         search_param="q",
         search_limit_param=None,

@@ -1,17 +1,17 @@
 """AI providers package."""
 
-from .base_provider import BaseAIProvider
-from .openai_provider import OpenAIProvider
 from .azure_provider import AzureProvider
-from .ollama_provider import OllamaProvider
+from .base_provider import BaseAIProvider
 from .github_provider import GitHubProvider
+from .ollama_provider import OllamaProvider
+from .openai_provider import OpenAIProvider
 from .stub_provider import StubProvider
 
 __all__ = [
-    'BaseAIProvider',
-    'OpenAIProvider',
-    'AzureProvider', 
-    'OllamaProvider',
-    'GitHubProvider',
-    'StubProvider',
+    "AzureProvider",
+    "BaseAIProvider",
+    "GitHubProvider",
+    "OllamaProvider",
+    "OpenAIProvider",
+    "StubProvider",
 ]

@@ -242,9 +242,9 @@ async def search_stores(request: SearchStoresRequest) -> SearchStoresResponse:
         # Use AI to optimize product matching
         ai_service = get_ai_service()
 
-        product_results = []
-        ia_stats = []
-        for ingredient in ingredients:
+        # Define an async function to search for a single ingredient
+        async def search_ingredient(ingredient: Ingredient):
+            """Search for a single ingredient."""
             logger.info(f"[API] Searching stores for ingredient: {ingredient.name}")
 
             # Search for products using AI
@@ -253,7 +253,30 @@ async def search_stores(request: SearchStoresRequest) -> SearchStoresResponse:
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug((f"[API] AI search for ingredient '{ingredient.name}' - output:", response))
 
+            # Be polite to avoid rate limits
+            await asyncio.sleep(0.5)
+            
+            return response
+
+        # Process ingredients concurrently using asyncio.gather
+        product_results = []
+        ia_stats = []
+        
+        # Use asyncio.gather for concurrent async operations
+        responses = await asyncio.gather(
+            *[search_ingredient(ingredient) for ingredient in ingredients],
+            return_exceptions=True
+        )
+
+        for response in responses:
+            if isinstance(response, Exception):
+                logger.error(f"[API] Error in ingredient search: {response}")
+                continue
+                
             # Process the AI response for this ingredient
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"[API] AI response for ingredient search: {response}")    
+
             product: Product = response.get("product")
             if product:
                 product_results.append(product)
@@ -262,14 +285,7 @@ async def search_stores(request: SearchStoresRequest) -> SearchStoresResponse:
             if ai_info:
                 ia_stats.append(ai_info)
 
-            # Be polite to avoid rate limits
-            await asyncio.sleep(0.5)
-
         logger.info(f"[API] Completed store search for {len(ingredients)} ingredients")
-
-        # if logger.isEnabledFor(logging.DEBUG):
-        #     logger.debug(stores)
-        #     logger.debug(product_results)
 
         return SearchStoresResponse(
             success=True,

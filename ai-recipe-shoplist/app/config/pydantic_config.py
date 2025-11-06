@@ -23,11 +23,11 @@ class WebFetcherSettings(BaseSettings):
     
     model_config = ConfigDict(env_prefix="FETCHER_")
 
-class WebDataServiceSettings(BaseSettings):
-    """Web data service configuration settings."""
+class WebScraperSettings(BaseSettings):
+    """Web scraper configuration settings."""
     html_to_text: bool = Field(default=False, description="Convert HTML content to text after extraction")
 
-    model_config = ConfigDict(env_prefix="WEB_DATA_SERVICE_")
+    model_config = ConfigDict(env_prefix="WEB_SCRAPER_")
 
 
 class AIProviderSettings(BaseSettings):
@@ -184,7 +184,7 @@ class AppSettings(BaseSettings):
     
     # Configuration sections
     web_fetcher: WebFetcherSettings = Field(default_factory=WebFetcherSettings)
-    web_data_service: WebDataServiceSettings = Field(default_factory=WebDataServiceSettings)
+    web_scraper: WebScraperSettings = Field(default_factory=WebScraperSettings)
     ai_provider: AIProviderSettings = Field(default_factory=AIProviderSettings)
     openai: OpenAISettings = Field(default_factory=OpenAISettings)
     azure: AzureOpenAISettings = Field(default_factory=AzureOpenAISettings)
@@ -198,7 +198,7 @@ class AppSettings(BaseSettings):
     storage: StorageSettings = Field(default_factory=StorageSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
 
-    @field_validator('web_fetcher', 'web_data_service', 'ai_provider', 'openai', 'azure', 
+    @field_validator('web_fetcher', 'web_scraper', 'ai_provider', 'openai', 'azure', 
                      'ollama', 'github', 'logging', 'server', 'retry', 'mock', 'tiktoken', 
                      'storage', 'cache', mode='before')
     @classmethod
@@ -279,7 +279,7 @@ settings = AppSettings()
 SERVER_SETTINGS = settings.server
 
 FETCHER_SETTINGS = settings.web_fetcher
-WEB_DATA_SERVICE_SETTINGS = settings.web_data_service
+WEB_SCRAPER_SETTINGS = settings.web_scraper
 STORAGE_SETTINGS = settings.storage
 CACHE_SETTINGS = settings.cache
 

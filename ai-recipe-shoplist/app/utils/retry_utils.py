@@ -295,24 +295,3 @@ def create_ai_retry_config(
         max_delay=max_delay,
         requests_per_minute=requests_per_minute
     )
-
-
-# Provider-specific convenience functions
-def create_github_retry_config(**kwargs) -> AIRetryConfig:
-    """Create retry config for GitHub Models with conservative defaults."""
-    return create_ai_retry_config("GITHUB", requests_per_minute=15, **kwargs)
-
-
-def create_openai_retry_config(**kwargs) -> AIRetryConfig:
-    """Create retry config for OpenAI with higher rate limits."""
-    return create_ai_retry_config("OPENAI", requests_per_minute=60, **kwargs)
-
-
-def create_azure_retry_config(**kwargs) -> AIRetryConfig:
-    """Create retry config for Azure OpenAI with highest rate limits."""
-    return create_ai_retry_config("AZURE", requests_per_minute=120, **kwargs)
-
-
-def create_ollama_retry_config(**kwargs) -> AIRetryConfig:
-    """Create retry config for Ollama with no rate limiting."""
-    return create_ai_retry_config("OLLAMA", requests_per_minute=0, **kwargs)

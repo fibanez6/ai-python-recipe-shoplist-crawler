@@ -5,7 +5,7 @@ from enum import Enum
 from functools import partial
 from typing import Optional
 
-from app.services.web_data_service import get_web_data_service
+from app.scrapers.html_scraper import get_web_scraper
 
 from ..config.logging_config import get_logger
 from ..config.pydantic_config import AI_SERVICE_SETTINGS
@@ -24,7 +24,7 @@ from ..utils.ai_helpers import (
     RECIPE_SHOPPING_ASSISTANT_SYSTEM,
     format_ai_prompt,
 )
-from ..web_extractor.html_extractor import clean_html, clean_html_with_selectors
+from ..scrapers.web_content_processor import clean_html, clean_html_with_selectors
 
 # Get module logger
 logger = get_logger(__name__)
@@ -46,7 +46,7 @@ class AIService:
         self.name = "AIService"
         self.provider_name = provider or AI_SERVICE_SETTINGS.provider
         self.provider = self._create_provider(self.provider_name)
-        self.web_data_service = get_web_data_service()
+        self.web_scraper = get_web_scraper()
     
     def _create_provider(self, provider_name: str) -> BaseAIProvider:
         """Create AI provider based on configuration."""        
@@ -75,8 +75,8 @@ class AIService:
             # Get html extractor
             html_extractor = clean_html
 
-            # Use web data service to fetch and process content
-            fetch_result = await self.web_data_service.fetch_and_process(url, html_extractor, data_format="html")
+            # Use web scraper to fetch and process content
+            fetch_result = await self.web_scraper.fetch_and_process(url, html_extractor, data_format="html")
 
             if logger.isEnabledFor(logging.DEBUG):
                 if isinstance(fetch_result, dict):
@@ -133,9 +133,9 @@ class AIService:
                     else:
                         data_extractor = clean_html
 
-                    # Use web data service to fetch and process content
+                    # Use web scraper to fetch and process content
                     url = store.get_search_url(ingredient.name)
-                    fetch_result = await self.web_data_service.fetch_and_process(url, data_extractor, data_format=store.search_type)
+                    fetch_result = await self.web_scraper.fetch_and_process(url, data_extractor, data_format=store.search_type)
 
                     if "data" not in fetch_result:
                         raise ValueError("No data found in fetched result for ingredient extraction")
