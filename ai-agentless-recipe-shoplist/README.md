@@ -1,4 +1,4 @@
-# AI Recipe Shoplist Crawler
+# AI-Agentless Recipe Shoplist
 
 An intelligent Python 3.11+ application that crawls recipe websites, extracts ingredients using AI, and searches multiple grocery stores for products. This application demonstrates AI-powered recipe analysis and grocery store product matching.
 
@@ -14,6 +14,10 @@ An intelligent Python 3.11+ application that crawls recipe websites, extracts in
 - ⚙️ **Type-Safe Configuration**: Pydantic-based configuration with validation and type checking
 - 🔄 **Robust Error Handling**: Automatic retry logic with exponential backoff
 - 📊 **Comprehensive Logging**: Structured logging with configurable levels and file output
+- 💾 **Advanced Storage System**: Multi-format async storage with JSON, Pickle, and Joblib support
+- 🔄 **Intelligent Caching**: Memory and disk caching for improved performance
+
+> � **[Storage System Documentation](doco/storage-system.md)**: Comprehensive guide to the async storage architecture, including BlobManager, CacheManager, and StorageManager with usage examples and best practices.
 
 ## 📱 Application Screenshots
 
@@ -49,6 +53,8 @@ ai-recipe-shoplist/
 │   ├── api/
 │   │   ├── __init__.py            # API package initialization
 │   │   └── v1.py                  # API v1 endpoints (versioned API)
+│   ├── client/
+│   │   └── ai_chat_client.py       # AI chat client implementation
 │   ├── config/
 │   │   ├── pydantic_config.py      # Type-safe configuration management
 │   │   ├── logging_config.py       # Logging configuration
@@ -59,6 +65,10 @@ ai-recipe-shoplist/
 │   │   ├── web_data_service.py     # Web data processing
 │   │   ├── grocery_service.py      # Grocery store management
 │   │   └── store_crawler.py        # Store crawling services
+│   ├── storage/                    # Storage system (see doco/storage-system.md)
+│   │   ├── blob_manager.py         # Async blob storage management
+│   │   ├── cache_manager.py        # Memory cache management
+│   │   └── storage_manager.py      # Unified storage operations
 │   ├── ia_provider/
 │   │   ├── base_provider.py        # Base AI provider class
 │   │   ├── openai_provider.py      # OpenAI implementation
@@ -78,7 +88,10 @@ ai-recipe-shoplist/
 │       ├── html_helpers.py        # HTML processing utilities
 │       └── str_helpers.py         # String processing utilities
 ├── doco/
-│   └── img/                       # Documentation images
+│   ├── img/                       # Documentation images
+│   ├── storage-system.md          # Storage system documentation
+│   ├── configuration.md           # Configuration documentation
+│   └── troubleshooting.md         # Troubleshooting guide
 ├── stub_responses/                # Mock AI responses for testing
 ├── tests/                         # Test suite
 ├── .env                          # Environment configuration
@@ -113,6 +126,9 @@ ai-recipe-shoplist/
    ```bash
    pip install --upgrade pip
    pip install -r requirements.txt
+   
+   # For advanced storage features
+   pip install aiofiles joblib numpy  # If not already included
    ```
 
 4. **Configure AI provider:**
@@ -274,128 +290,28 @@ Or use the web interface for an interactive experience.
 
 ## 🔧 Configuration
 
-The application uses **Pydantic Settings** for type-safe configuration management with automatic environment variable loading and validation.
+The application uses **Pydantic Settings** for comprehensive type-safe configuration management with automatic environment variable loading and validation.
 
-### Environment Variables
+> 📖 **[Configuration Documentation](doco/configuration.md)**: Complete configuration guide including environment variables, AI provider setup, security best practices, performance tuning, and environment-specific configurations.
 
-Create a `.env` file in the project root with your configuration:
+### Quick Configuration
+
+Create a `.env` file in the project root with your basic configuration:
 
 ```env
-# =================================================================
-# AI PROVIDER CONFIGURATION
-# =================================================================
-AI_PROVIDER=openai                    # AI provider (openai, azure, ollama, github)
+# AI Provider (required)
+AI_PROVIDER=openai                    # Options: openai, azure, ollama, github
+OPENAI_API_KEY=sk-your-openai-key     # Your OpenAI API key
 
-# =================================================================
-# OPENAI CONFIGURATION
-# =================================================================
-OPENAI_API_KEY=sk-your-openai-key
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_MAX_TOKENS=2000
-OPENAI_TEMPERATURE=0.1
-OPENAI_TIMEOUT=30
+# Server Configuration (optional)
+SERVER_HOST=0.0.0.0                  # Default: 0.0.0.0
+SERVER_PORT=8000                     # Default: 8000
 
-# =================================================================
-# AZURE OPENAI CONFIGURATION  
-# =================================================================
-AZURE_OPENAI_API_KEY=your-azure-key
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_VERSION=2024-02-15-preview
-AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment
-
-# =================================================================
-# OLLAMA CONFIGURATION
-# =================================================================
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=llama3.1
-OLLAMA_TIMEOUT=30
-
-# =================================================================
-# GITHUB MODELS CONFIGURATION
-# =================================================================
-GITHUB_TOKEN=ghp_your-github-token
-GITHUB_MODEL=gpt-4o-mini
-GITHUB_API_URL=https://models.inference.ai.azure.com
-
-# =================================================================
-# WEB FETCHER CONFIGURATION
-# =================================================================
-FETCHER_TIMEOUT=30                    # Request timeout in seconds
-FETCHER_MAX_SIZE=10485760            # Max content size (10MB)
-FETCHER_USER_AGENT=Mozilla/5.0 (compatible; AI-Recipe-Crawler/1.0)
-FETCHER_CACHE_TTL=3600               # Cache TTL in seconds
-
-# =================================================================
-# SERVER CONFIGURATION
-# =================================================================
-SERVER_HOST=0.0.0.0
-SERVER_PORT=8000
-
-# =================================================================
-# LOGGING CONFIGURATION
-# =================================================================
-LOG_LEVEL=INFO
-LOG_TO_FILE=true
-LOG_FILE_PATH=logs/app.log
-LOG_DEBUG_ENABLED=false
-
-# =================================================================
-# RETRY CONFIGURATION
-# =================================================================
-RETRY_MAX_ATTEMPTS=3
-RETRY_BASE_DELAY=1.0
-RETRY_MAX_DELAY=60.0
-
-# Provider-specific retry settings
-OPENAI_MAX_RETRIES=3
-GITHUB_MAX_RETRIES=3
-GITHUB_RPM_LIMIT=15                  # GitHub has strict rate limits
+# Logging (optional)
+LOG_LEVEL=INFO                       # Options: DEBUG, INFO, WARNING, ERROR
 ```
 
-### Configuration Features
-
-- **Type Safety**: All configuration values are validated and type-checked
-- **Environment Variables**: Automatic loading from `.env` files
-- **Validation**: Invalid values are caught early with clear error messages
-- **Documentation**: Each setting includes description and default values
-- **Organized Sections**: Configuration grouped by functionality
-- **Backward Compatibility**: Maintains same variable names as before
-
-### Configuration Access
-
-The configuration system provides both modern Pydantic access and backward-compatible exports:
-
-```python
-# Modern Pydantic access
-from app.config.pydantic_config import settings
-print(settings.openai.api_key)
-print(settings.web_fetcher.timeout)
-
-# Backward-compatible access (recommended for existing code)
-from app.config.pydantic_config import OPENAI_API_KEY, FETCHER_TIMEOUT
-print(OPENAI_API_KEY)
-print(FETCHER_TIMEOUT)
-```
-
-### Store Configuration
-
-The application supports multiple grocery stores with configurable adapters:
-
-- **Coles**: Australian supermarket chain
-- **Woolworths**: Australian supermarket chain  
-- **ALDI**: International discount supermarket
-- **IGA**: Independent Grocers of Australia
-
-Store configurations include:
-- Search URL patterns
-- HTML selectors for product extraction
-- Product page URL patterns
-- Store-specific data processing
-
-For production use:
-1. Configure store-specific search mechanisms in `app/config/store_config.py`
-2. Implement real web scraping or API integration
-3. Add store API keys to environment variables if required
+For complete configuration options, security considerations, and environment-specific setups, see the [detailed configuration documentation](doco/configuration.md).
 
 ## 🧪 Development
 
@@ -427,6 +343,17 @@ mypy app/
 5. **New Services**: Create new services in `services/` directory with proper logging
 6. **New Stores**: Add store configurations in `config/store_config.py`
 7. **API Versioning**: For breaking changes, create new API version in `app/api/v2.py`
+8. **Storage Components**: Add new storage managers in `storage/` directory with async operations (see [Storage System Documentation](doco/storage-system.md))
+9. **Serialization Formats**: Extend `BlobManager` with new serialization formats as needed
+10. **Configuration**: Add new settings to `pydantic_config.py` with proper validation (see [Configuration Documentation](doco/configuration.md))
+
+### Development Guidelines
+
+See the comprehensive documentation for detailed development guidelines:
+
+- **[Storage System Documentation](doco/storage-system.md)**: Async/await patterns, type safety with Pydantic models, format selection guidelines, performance best practices and testing approaches
+- **[Configuration Documentation](doco/configuration.md)**: Environment variables, security best practices, performance tuning, and environment-specific configurations
+- **[Troubleshooting Guide](doco/troubleshooting.md)**: Common issues, debugging techniques, performance optimization, and advanced troubleshooting methods
 
 ## 📊 Current Implementation
 
@@ -531,6 +458,10 @@ MIT License - see LICENSE file for details.
 
 ## 🆘 Troubleshooting
 
+Having issues with the application? We've got you covered with comprehensive troubleshooting solutions.
+
+> 🔧 **[Troubleshooting Guide](doco/troubleshooting.md)**: Complete troubleshooting documentation covering common issues, performance problems, debugging steps, and advanced troubleshooting techniques.
+
 ### Quick Fixes
 
 **Application won't start - Missing pydantic_settings module:**
@@ -544,63 +475,23 @@ pip install pydantic-settings>=2.0.0
 pip install -r requirements.txt --force-reinstall
 ```
 
-### Common Issues
+### Most Common Issues
 
-**Missing Dependencies (pydantic_settings)**
-- If you see `ModuleNotFoundError: No module named 'pydantic_settings'`, run:
-  ```bash
-  pip install --upgrade pip
-  pip install pydantic-settings>=2.0.0
-  ```
-- Or reinstall all dependencies:
-  ```bash
-  pip install -r requirements.txt --force-reinstall
-  ```
+- **Missing Dependencies**: Module import errors and installation issues
+- **AI Service Problems**: API key validation and connectivity issues  
+- **Rate Limiting**: GitHub Models and other provider rate limit handling
+- **Storage System**: Async operations, serialization, and performance issues
+- **Configuration**: Environment variables and settings validation
+- **Network Issues**: Connectivity problems and proxy configurations
 
-**AI Service Not Working**
-- Verify API keys are correct
-- Check internet connection for cloud providers
-- For Ollama, ensure service is running: `ollama serve`
+### Quick Diagnostics
 
-**Rate Limiting (429 Too Many Requests)**
-- GitHub Models has strict rate limits (15 requests/minute)
-- The app includes automatic retry logic with exponential backoff
-- Configure rate limiting settings in your `.env` file:
-  ```env
-  GITHUB_RPM_LIMIT=15        # Requests per minute (default: 15)
-  GITHUB_MAX_RETRIES=3       # Number of retries (default: 3)
-  GITHUB_BASE_DELAY=1.0      # Base delay in seconds (default: 1.0)
-  GITHUB_MAX_DELAY=60.0      # Maximum delay in seconds (default: 60.0)
-  ```
-- Consider switching to OpenAI or Azure for higher rate limits
-- For production, implement request queuing to stay within limits
+1. **Check API Documentation**: http://localhost:8000/api/v1/docs (when running)
+2. **Test Demo Mode**: `curl -X GET "http://localhost:8000/api/v1/demo"`
+3. **Review Logs**: Check application logs for detailed error messages
+4. **Validate Configuration**: Ensure all required environment variables are set
 
-**No Products Found**
-- This indicates the AI product matching didn't find suitable matches
-- Check ingredient names are clear and specific
-- Verify store configurations are properly set up
-- Try different ingredient variations
-
-**Recipe Extraction Fails**
-- Ensure the recipe URL is accessible and contains structured recipe data
-- Some sites may require specific parsing logic
-- Check the AI provider is working correctly with a simple test
-
-**Store Search Issues**
-- Verify store configurations in `app/config/store_config.py`
-- Check if the stores are accessible and responding
-- Review logs for specific error messages during store searches
-
-**Web Interface Not Loading**
-- Ensure templates and static directories exist
-- Check FastAPI is serving static files correctly
-- Verify all dependencies are installed
-
-### Getting Help
-
-1. Check the [API documentation](http://localhost:8000/api/v1/docs) when running
-2. Review application logs for detailed error messages  
-3. Try the demo mode to verify setup: `curl -X GET "http://localhost:8000/api/v1/demo"`
+For detailed solutions, debugging steps, and advanced troubleshooting, see the [complete troubleshooting guide](doco/troubleshooting.md).
 
 ## 🔮 Roadmap
 
@@ -618,6 +509,16 @@ pip install -r requirements.txt --force-reinstall
 - [ ] Store location and proximity optimization
 
 ## 🆕 Recent Updates
+
+### v2.3 - Advanced Storage System & Performance Enhancements
+- **Async Storage Architecture**: Fully async blob storage system using `aiofiles` and `asyncio.to_thread()`
+- **Multi-Format Support**: JSON, Pickle, and Joblib serialization with automatic format detection
+- **BlobManager**: Advanced blob storage with metadata tracking and type-safe operations
+- **CacheManager**: High-performance memory caching with TTL and size management
+- **StorageManager**: Unified storage interface combining memory and disk operations
+- **Pydantic Integration**: Seamless serialization/deserialization of Pydantic models
+- **Performance Optimized**: Non-blocking I/O operations for better scalability
+- **Storage Configuration**: Configurable storage paths, cache sizes, and TTL settings
 
 ### v2.2 - Modular Architecture & API Versioning
 - **Modular API Structure**: Separated API endpoints into versioned modules (`app/api/v1.py`)
