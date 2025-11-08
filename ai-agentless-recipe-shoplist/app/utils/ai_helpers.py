@@ -184,10 +184,12 @@ def log_ai_chat_query(provider_name: str, chat_params: list[dict[str, str]], log
         level: Logging level (e.g., logging.INFO)
     """
     if logger.isEnabledFor(level):
+        logger.log(level, "-" * 20 + " AI CHAT QUERY " + "-" * 20)
+
         # Log chat parameters except messages
         params_copy = {k: v for k, v in chat_params.items() if k != 'messages'}
         if params_copy:
-            logger.debug(f"[{provider_name}] API call - chat params: {params_copy}")
+            logger.log(level, f"[{provider_name}] API call - chat params: {params_copy}")
 
         # Log each message
         for i, msg in enumerate(chat_params.get('messages', [])):
@@ -200,7 +202,9 @@ def log_ai_chat_query(provider_name: str, chat_params: list[dict[str, str]], log
             if LOG_SETTINGS.chat_message_single_line:
                 content = content.replace(chr(10), ' ')  # replace newlines with spaces for single line logging
 
-            logger.debug(f"[{provider_name}] Message {i+1} ({msg.get('role', 'unknown')}): \n\"\"\"\n{content}\n\"\"\"")
+            logger.log(level, f"[{provider_name}] Message {i+1} ({msg.get('role', 'unknown')}): \n\"\"\"\n{content}\n\"\"\"")
+
+        logger.log(level, "-" * 50)
 
 
 def get_ai_token_stats(provider_name: str, response: Any) -> dict:
@@ -235,20 +239,21 @@ def log_ai_chat_response(provider_name: str, response: Any, logger: logging.Logg
         logger: Logger instance
         level: Logging level (e.g., logging.DEBUG)
     """
+
+    logger.log(level, "-" * 20 + " AI CHAT RESPONSE " + "-" * 20)
+
     stats = get_ai_token_stats(provider_name, response)
 
-    logger.info(f"[{provider_name}] OpenAI API call stats: {stats} ")
+    logger.log(level, f"[{provider_name}] OpenAI API call stats: {stats} ")
 
     if logger.isEnabledFor(level):
         try:
             message = response.choices[0].message
             if hasattr(message, 'refusal') and message.refusal:
                 logger.log(level, f"[{provider_name}] AI Response refused: {message.refusal}")
-                return
             elif hasattr(message, 'parsed') and message.parsed:
                 parsed = message.parsed.model_dump_json(indent=2)
-                logger.debug((f"[{provider_name}] AI Response parsed:", parsed))
-                return
+                logger.log(level, f"[{provider_name}] AI Response parsed: {parsed}")
             else:
                 content = message.content if hasattr(message, 'content') else message
                 max_length = LOG_SETTINGS.chat_message_max_length
@@ -265,7 +270,7 @@ def log_ai_chat_response(provider_name: str, response: Any, logger: logging.Logg
         except Exception as e:
             logger.error(f"[{provider_name}] Error logging full AI response: {e}")
 
-
+    logger.log(level,"-" * 50)
 
 # Common prompt templates
 

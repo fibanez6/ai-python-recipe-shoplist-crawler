@@ -141,7 +141,7 @@ async def search_stores(request: SearchStoresRequest) -> SearchStoresResponse:
 
         return SearchStoresResponse(
             success=True,
-            stores=[Store.mapConfig(store) for store in stores],
+            stores=[Store.mapConfig(store.name, store.display_name, store.region, store.base_url) for store in stores],
             products=product_results,
             ia_stats=ia_stats,
             timestamp=datetime.now().isoformat()

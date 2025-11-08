@@ -5,9 +5,16 @@ Converts the curl command to Python requests
 """
 
 import json
+import os
 from pprint import pprint
+from dotenv import load_dotenv
 
 import requests
+
+load_dotenv()
+
+RAPID_API_KEY = os.getenv("RAPID_API_KEY")
+RAPID_API_HOST = os.getenv("RAPID_API_HOST")
 
 
 def search_coles_products(query="tomato"):
@@ -29,8 +36,8 @@ def search_coles_products(query="tomato"):
     
     # Headers for RapidAPI
     headers = {
-        "x-rapidapi-host": "coles-product-price-api.p.rapidapi.com",
-        "x-rapidapi-key": "c812b13e14msh9ed2d3a327cee38p17bfb0jsn7a2e22b13be3"
+        # "x-rapidapi-host": RAPID_API_HOST,
+        "x-rapidapi-key": RAPID_API_KEY
     }
     
     try:
@@ -93,24 +100,23 @@ def main():
     print("🛒 Testing Coles Product Price API")
     print("=" * 50)
     
-    # # Test with tomato search
-    # result = search_coles_products("tomato")
+    # Test with tomato search
+    result = search_coles_products("coles tomato")
     
-    # if result:
-    #     print("\n📋 API Response:")
-    #     print("-" * 30)
-    #     pprint(result)
+    if result:
+        print("\n📋 API Response:")
+        print("-" * 30)
+        pprint(result)
         
-    #     # Extract some key information if available
-    #     if isinstance(result, dict):
-    #         if "products" in result:
-    #             print(f"\n🎯 Found {len(result['products'])} products")
-    #         elif "data" in result:
-    #             print(f"\n📦 Data keys: {list(result['data'].keys()) if isinstance(result['data'], dict) else 'Non-dict data'}")
-    # else:
-    #     print("❌ Failed to fetch data")
+        # Extract some key information if available
+        if isinstance(result, dict):
+            if "products" in result:
+                print(f"\n🎯 Found {len(result['products'])} products")
+            elif "data" in result:
+                print(f"\n📦 Data keys: {list(result['data'].keys()) if isinstance(result['data'], dict) else 'Non-dict data'}")
+    else:
+        print("❌ Failed to fetch data")
 
-    scraper()
 
 if __name__ == "__main__":
     main()

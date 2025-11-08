@@ -5,9 +5,6 @@ from typing import Any, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field
 
-from app.config.store_config import StoreConfig
-
-
 class QuantityUnit(str, Enum):
     """Standard quantity units for ingredients."""
     # Volume
@@ -115,20 +112,6 @@ class Product(BaseModel):
             store="Example Store"
         )
 
-    # def display(self) -> dict:
-    #     """Return a dict with only selected fields."""
-    #     return {
-    #         "name": self.name,
-    #         "store": self.store,
-    #         "price": self.price,
-    #         "url": self.url,
-    #         "image_url": self.image_url,
-    #         "brand": self.brand,
-    #         "unit_price": self.unit_price,
-    #         "quantity": self.quantity,
-    #         "reasoning": self.ia_reasoning
-    #     }
-
 class Store(BaseModel):
     """Represents a grocery store."""
     name: str = Field(..., description="Store name")
@@ -137,13 +120,13 @@ class Store(BaseModel):
     base_url: Optional[str] = Field(None, description="Store base URL")
 
     @staticmethod
-    def mapConfig(config: StoreConfig) -> "Store":
+    def mapConfig(name: str, display_name: str, region: str, base_url: str) -> "Store":
         """Map to store config."""
         return Store (
-            name = config.name,
-            display_name = config.display_name,
-            region = config.region,
-            base_url = config.base_url
+            name = name,
+            display_name = display_name,
+            region = region,
+            base_url = base_url
         )
 
 class ShopphingCart(BaseModel):

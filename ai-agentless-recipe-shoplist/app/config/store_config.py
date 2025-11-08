@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
+
 class StoreRegion(str, Enum):
     """Supported store regions."""
     AUSTRALIA = "au"
@@ -38,6 +39,7 @@ class StoreConfig:
     search_results_per_page: int = 5
     search_max_pages: int = 3
     search_type: str = "html"  # e.g., "html", "api", "graphql"
+    # search_function: callable
 
     # Request settings
     request_rate_limit_delay: float = 1.0
@@ -55,16 +57,9 @@ class StoreConfig:
     def get_search_url(self, query: str) -> str:
         """Generate search URL for a query."""
         limit = f"&{self.search_limit_param}={self.search_results_per_page}" if self.search_limit_param else ""
-        return f"{self.search_url}?{self.search_param}={query.replace(' ', '+')}{limit}"
+        # return f"{self.search_url}?{self.search_param}={query.replace(' ', '+')}{limit}"
+        return f"{self.search_url}?{self.search_param}={query.replace(' ', '%20')}{limit}"
     
-    def get_product_url(self, product_id: str) -> str:
-        """Generate product URL from template."""
-        return self.product_url_template.format(product_id=product_id)
-    
-    def get_store_name_and_search_url(self, product_name: str) -> str:
-        """Return a string with the store name and product URL."""
-        return f"{self.name}: {self.get_search_url(product_name)}"
-
 # Australian grocery stores
 STORE_CONFIGS: dict[str, StoreConfig] = {
     "coles": StoreConfig(
@@ -73,21 +68,22 @@ STORE_CONFIGS: dict[str, StoreConfig] = {
         display_name="Coles Supermarkets",
         region=StoreRegion.AUSTRALIA,
         base_url="https://www.coles.com.au",
-        search_url="https://www.coles.com.au/search/products",
+        search_url="https://coles-product-price-api.p.rapidapi.com/coles/product-search",
         # search_api_template="https://www.coles.com.au/api/graphql",
         search_api_template="https://www.coles.com.au/_next/data/20251029.1-5acc651e3b5f8a27a9fa067cf11fc08619865a7b/en/search/products.json?q={product_id}",
         product_url_template="https://www.coles.com.au/product/{product_id}",
-        search_param="q",
-        search_limit_param=None,
+        search_param="query",
+        search_limit_param="size",
+        search_type="coles_rapidapi",
         request_rate_limit_delay=1.5,
         price_multiplier=1.0,
-        html_selectors={
-            "product_title": ".product-title",
-            "product_price": ".price",
-            "product_image": ".product-image img",
-            "product_brand": ".product-brand",
-            "product_size": ".product-size"
-        }
+        # html_selectors={
+        #     "product_title": ".product-title",
+        #     "product_price": ".price",
+        #     "product_image": ".product-image img",
+        #     "product_brand": ".product-brand",
+        #     "product_size": ".product-size"
+        # }
     ),
     
     "woolworths": StoreConfig(
@@ -136,7 +132,8 @@ STORE_CONFIGS: dict[str, StoreConfig] = {
             "product_image": '.product-tile__picture img',
             "product_brand": '.product-tile__brandname',
             "product_url": '.product-tile__link'
-        }
+        },
+        # search_function=get_web_scraper().fetch_and_process
     ),
     
     "iga": StoreConfig(

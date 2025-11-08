@@ -4,7 +4,8 @@ import logging
 import traceback
 
 from app.client.ai_chat_client import get_chat_client
-from app.scrapers.html_scraper import get_web_scraper
+from app.scrapers.html_scraper import get_html_scraper
+from app.scrapers.scraper_factory import ScraperFactory
 
 from ..config.logging_config import get_logger
 from ..config.store_config import StoreConfig
@@ -18,7 +19,7 @@ class AIService:
     
     def __init__(self):
         self.name = "AIService"
-        self.web_scraper = get_web_scraper()
+        self.web_scraper = get_html_scraper()
         self.ai_chat_client = get_chat_client()
     
     async def extract_recipe_intelligently(self, url: str) -> dict:
@@ -77,11 +78,19 @@ class AIService:
             for store in stores:
                 try:
                     # Fetch search page content
-                    logger.info(f"[{self.name}] Searching products in store {store.name} from ingredient {ingredient.name}")
+                    logger.info((f"[{self.name}] Searching products", {
+                        "store_id": store.store_id,
+                        "ingredient": ingredient.name,
+                        "scraper_type": store.search_type
+                    }))
 
                     # Use web scraper to fetch and process content
+                    scraper = ScraperFactory.create_scraper(store)
                     url = store.get_search_url(ingredient.name)
-                    fetch_result = await self.web_scraper.fetch_and_process(url, store.html_selectors, store.search_type)
+                    fetch_result = await scraper.scrape(url, store)
+
+                    # url = store.get_search_url(ingredient.name)
+                    # fetch_result = await self.web_scraper.fetch_and_process(url, store.html_selectors, store.search_type)
 
                     if "data" not in fetch_result:
                         raise ValueError("No data found in fetched result for ingredient extraction")

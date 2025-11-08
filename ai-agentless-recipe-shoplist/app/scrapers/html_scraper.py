@@ -1,7 +1,8 @@
 import logging
-from functools import partial
 import traceback
+from functools import partial
 
+from app.config.store_config import StoreConfig
 from app.scrapers.html_content_processor import (
     process_html_content,
     process_html_content_with_selectors,
@@ -13,11 +14,11 @@ from ..config.logging_config import get_logger, log_function_call
 
 logger = get_logger(__name__)
 
-class WebScraper:
+class HTMLScraper:
     """Service for processing data with caching and error handling."""
     
     def __init__(self):
-        self.name = "WebScraper"
+        self.name = "HTMLScraper"
 
         # Initialize cache manager and content storage
         self.content_storage = get_storage_manager()
@@ -28,7 +29,7 @@ class WebScraper:
     async def _fetch(self, url: str, data_format: str ) -> dict:
         """Fetch content from cache, disk, or web (in that order)."""
 
-        log_function_call("WebScraper._fetch", {
+        log_function_call("HTMLScraper._fetch", {
             "url": url,
             "data_format": data_format
         })
@@ -110,12 +111,17 @@ class WebScraper:
             logger.error(f"[{self.name}] Full stack trace: {traceback.format_exc()}")
             raise
 
-# Global web scraper instance
-_web_scraper_instance = None
+    async def scrape(self, url: str, store_config: StoreConfig) -> dict:
+        """Scrape a web page and return processed data."""
+        logger.info(f"{self.name}: Scraping URL: {url}")
+        return await self.fetch_and_process(url, store_config.html_selectors, store_config.search_type)
 
-def get_web_scraper() -> WebScraper:
-    """Get or create the global web scraper instance."""
-    global _web_scraper_instance
-    if _web_scraper_instance is None:
-        _web_scraper_instance = WebScraper()
-    return _web_scraper_instance
+# Global web scraper instance
+_html_scraper_instance = None
+
+def get_html_scraper() -> HTMLScraper:
+    """Get or create the global HTML scraper instance."""
+    global _html_scraper_instance
+    if _html_scraper_instance is None:
+        _html_scraper_instance = HTMLScraper()
+    return _html_scraper_instance

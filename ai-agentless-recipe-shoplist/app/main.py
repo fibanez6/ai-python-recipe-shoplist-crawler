@@ -46,6 +46,7 @@ async def lifespan(app: FastAPI):
     """Lifespan context for FastAPI startup and shutdown events."""
     logger.info("[App] Starting AI Recipe Shoplist")
 
+
     logger.info("[App] Initializing Store Crawler...")
     logger.debug(get_config_summary())
     
@@ -54,7 +55,7 @@ async def lifespan(app: FastAPI):
         ai_service = get_ai_service()
         logger.info(f"[App] AI service initialized with provider: {ai_service.provider_name}")
     except Exception as e:
-        logger.info(f"[App] Warning: AI service initialization failed: {e}")
+        logger.warning(f"[App] AI service initialization failed: {e}")
     
     logger.info("[App] Application startup complete")
     yield
