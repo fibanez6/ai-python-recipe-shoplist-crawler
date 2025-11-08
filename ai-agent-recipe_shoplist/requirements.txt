@@ -1,0 +1,26 @@
+# Web Framework & Server
+fastapi>=0.104.0,<1.0.0
+uvicorn[standard]>=0.24.0,<1.0.0
+python-multipart>=0.0.6,<1.0.0
+
+azure-identity
+openai>=1.109.1
+python-dotenv
+pydantic
+rich
+dotenv-azd
+aiohttp
+faker
+openai-agents
+semantic-kernel
+langgraph
+langchain==1.0.2
+langchain_openai==1.0.1
+pydantic-ai==1.0.8
+llama-index
+llama-index-llms-azure-openai
+llama-index-llms-openai-like
+llama-index-embeddings-azure-openai
+smolagents
+langchain-mcp-adapters
+agent-framework-core==1.0.0b251016
