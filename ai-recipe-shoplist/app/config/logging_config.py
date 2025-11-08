@@ -30,7 +30,7 @@ class RichJSONFormatter(logging.Formatter):
                     json_pretty = json.dumps(message[1], indent=2, ensure_ascii=False, default=str)
                     # Only print the pretty JSON, not the tuple/list as a string
                     return f"{based_truncated}{message[0]}\n{json_pretty}"
-                except Excehption:
+                except Exception:
                     return base
 
             # If the second element is a JSON string, pretty-print it
@@ -235,7 +235,7 @@ def log_function_call(func_name: str, args: dict = None, level: int = logging.DE
         # Sanitize sensitive data
         safe_args = {}
         for key, value in args.items():
-            if key.lower() in ['max_tokens', 'max_token', 'cache_key', 'storage_key']:
+            if key.lower() in ['max_tokens', 'max_token', 'cache_key', 'storage_key', 'data_keys']:
                 return value
             if any(sensitive in key.lower() for sensitive in ['token', 'key', 'password', 'secret']):
                 safe_args[key] = f"{'*' * min(8, len(str(value)))}"

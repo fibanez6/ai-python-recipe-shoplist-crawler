@@ -160,13 +160,13 @@ class TiktokenSettings(BaseSettings):
 
     model_config = ConfigDict(env_prefix="TIKTOKEN_")
 
-class StorageSettings(BaseSettings):
-    """Storage configuration settings."""
+class BlobSettings(BaseSettings):
+    """Blob storage configuration settings."""
 
     base_path: Path = Field(default=Path("tmp/web_cache"), description="Temporary folder for caching")
     enabled: bool = Field(default=True, description="Enable storage to disk")
 
-    model_config = ConfigDict(env_prefix="STORAGE_")
+    model_config = ConfigDict(env_prefix="BLOB_")
 
 class CacheSettings(BaseSettings):
     """Cache configuration settings."""
@@ -194,12 +194,12 @@ class AppSettings(BaseSettings):
     retry: RetrySettings = Field(default_factory=RetrySettings)
     mock: MockSettings = Field(default_factory=MockSettings)
     tiktoken: TiktokenSettings = Field(default_factory=TiktokenSettings)
-    storage: StorageSettings = Field(default_factory=StorageSettings)
+    blob: BlobSettings = Field(default_factory=BlobSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
 
     @field_validator('web_fetcher', 'web_scraper', 'ai_provider', 'openai', 'azure', 
                      'ollama', 'github', 'logging', 'server', 'retry', 'mock', 'tiktoken', 
-                     'storage', 'cache', mode='before')
+                     'blob', 'cache', mode='before')
     @classmethod
     def ensure_settings_instances(cls, v, info):
         """Ensure all settings are properly instantiated."""
@@ -279,7 +279,7 @@ SERVER_SETTINGS = settings.server
 
 FETCHER_SETTINGS = settings.web_fetcher
 WEB_SCRAPER_SETTINGS = settings.web_scraper
-STORAGE_SETTINGS = settings.storage
+BLOB_SETTINGS = settings.blob
 CACHE_SETTINGS = settings.cache
 
 LOG_SETTINGS = settings.logging

@@ -3,6 +3,7 @@
 import hashlib
 import sys
 import time
+import traceback
 from typing import Any, Optional
 
 from cachetools import TTLCache
@@ -35,70 +36,83 @@ class CacheManager:
     def _get_hash(self, key: str, alias: str) -> str:
         """Generate a hash for the key and alias to use as cache_key."""
         return hashlib.md5(f"{alias}_{key}".encode()).hexdigest()
-    
-    def save(self, key: str, obj: any, alias: str = SOURCE_ALIAS, format: str = "json", **kwargs) -> dict:
+
+    def save(self, key: str, obj: any, alias: str = None, format: str = "json", **kwargs) -> dict:
         """
         Save content to in-memory cache.
         """
         if not self.enabled:
             return None
         
-        obj_str = object_to_str(obj)
-        obj_size = sys.getsizeof(obj_str)
-        
-        log_function_call("CacheManager.save", {
-            "cache_key": key,
-            "alias": alias,
-            "data_preview": obj_str[:20] + ("..." if len(obj_str) > 20 else ""),
-            "format": format
-        })
+        try: 
+            obj_str = object_to_str(obj)
+            obj_size = sys.getsizeof(obj_str)
+            alias = alias or SOURCE_ALIAS
+            
+            log_function_call("CacheManager.save", {
+                "cache_key": key,
+                "alias": alias,
+                "format": format,
+                "data_preview": obj_str[:20] + ("..." if len(obj_str) > 20 else "")
+            })
 
-        load_from = kwargs.get('data_from', None)
-        if load_from == "local_cache":
-            logger.debug(f"[{self.name}] Skipping save since data loaded from local cache")
+            load_from = kwargs.get('data_from', None)
+            if load_from == "local_cache":
+                logger.debug(f"[{self.name}] Skipping save since data loaded from local cache")
+                return None
+
+            format = format.lower()
+
+            cache_key = self._get_hash(key, alias)
+            cache_entry = {
+                "cache_key": cache_key,
+                "alias": alias,
+                "timestamp": time.time(),
+                "data_size": f"{obj_size} bytes ({obj_size/1024:.2f} KB)",
+                "data_format": format,
+                "data": obj
+            }
+
+            self.cache[cache_key] = cache_entry
+
+            logger.debug(f"[{self.name}] Saved obj to cache for {cache_key} and alias '{alias}'")
+
+            return cache_entry
+        except Exception as e:
+            logger.error(f"[{self.name}] Error saving to cache: {e}")
+            logger.error(f"[{self.name}] Full stack trace: {traceback.format_exc()}")
             return None
 
-        format = format.lower()
-
-        cache_key = self._get_hash(key, alias)
-        cache_entry = {
-            "cache_key": cache_key,
-            "alias": alias,
-            "timestamp": time.time(),
-            "data_size": f"{obj_size} bytes ({obj_size/1024:.2f} KB)",
-            "data_format": format,
-            "data": obj
-        }
-
-        self.cache[cache_key] = cache_entry
-
-        logger.debug(f"[{self.name}] Saved obj to cache for {cache_key} and alias '{alias}'")
-
-        return cache_entry
-
-    def load(self, key: str, alias: str = SOURCE_ALIAS) -> Optional[dict]:
+    def load(self, key: str, alias: str = None) -> Optional[dict]:
         """
         Retrieve content from in-memory cache if available and not expired.
         """
         if not self.enabled:
             return None
+        
+        try: 
+            alias = alias or SOURCE_ALIAS
 
-        log_function_call("CacheManager.load", {
-            "cache_key": key,
-            "alias": alias
-        })
+            log_function_call("CacheManager.load", {
+                "cache_key": key,
+                "alias": alias
+            })
 
-        cache_key = self._get_hash(key, alias)
+            cache_key = self._get_hash(key, alias)
 
-        # Check if the cache entry exists
-        cache_entry = self.cache.get(cache_key)
-        if cache_entry is not None:
-            cache_entry["data_from"] = "local_cache"
-            logger.info(f"[{self.name}] Cache hit for key: {cache_key} (alias='{alias}')")
-            return cache_entry
+            # Check if the cache entry exists
+            cache_entry = self.cache.get(cache_key)
+            if cache_entry is not None:
+                cache_entry["data_from"] = "local_cache"
+                logger.info(f"[{self.name}] Cache hit for key: {cache_key} (alias='{alias}')")
+                return cache_entry
 
-        logger.debug(f"[{self.name}] Cache miss for key: {cache_key} (alias='{alias}')")
-        return None
+            logger.debug(f"[{self.name}] Cache miss for key: {cache_key} (alias='{alias}')")
+            return None
+        except Exception as e:
+            logger.error(f"[{self.name}] Error loading from cache: {e}")
+            logger.error(f"[{self.name}] Full stack trace: {traceback.format_exc()}")
+            return None
 
     def clear(self) -> dict[str, int]:
         """

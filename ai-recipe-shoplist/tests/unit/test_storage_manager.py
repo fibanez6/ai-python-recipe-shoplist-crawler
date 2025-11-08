@@ -17,7 +17,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 
 from app.config.logging_config import get_logger, setup_logging
-from app.manager.storage_manager import StorageManager, get_storage_manager
+from app.manager.blob_manager import StorageManager, get_storage_manager
 from app.models import Ingredient, Product, QuantityUnit, Recipe
 
 

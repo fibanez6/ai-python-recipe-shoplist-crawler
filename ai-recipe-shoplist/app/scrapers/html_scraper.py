@@ -1,16 +1,15 @@
 import logging
 from functools import partial
+import traceback
 
 from app.scrapers.html_content_processor import (
     process_html_content,
     process_html_content_with_selectors,
 )
 from app.services.web_fetcher import get_web_fetcher
+from app.storage.storage_manager import get_storage_manager
 
 from ..config.logging_config import get_logger, log_function_call
-from ..config.pydantic_config import WEB_SCRAPER_SETTINGS
-from ..manager.cache_manager import get_cache_manager
-from ..manager.storage_manager import get_storage_manager
 
 logger = get_logger(__name__)
 
@@ -21,7 +20,6 @@ class WebScraper:
         self.name = "WebScraper"
 
         # Initialize cache manager and content storage
-        self.cache_manager = get_cache_manager()
         self.content_storage = get_storage_manager()
 
         # Initialize web fetcher
@@ -35,17 +33,11 @@ class WebScraper:
             "data_format": data_format
         })
 
-        # Try loading from cache
-        cached_data = self.cache_manager.load(url)
-        if cached_data:
-            logger.info(f"{self.name}: Loaded source data from cache for {url}")
-            return cached_data
-
-        # Try loading from disk
-        disk_data = self.content_storage.load(url, format=data_format)
-        if disk_data:
-            logger.info(f"{self.name}: Loaded source data from disk for {url}")
-            return disk_data
+        # Try loading from cache or disk storage
+        loaded_data = await self.content_storage.load_fetch(url)
+        if loaded_data:
+            logger.info(f"{self.name}: Loaded source data from content storage for {url}")
+            return loaded_data
 
         # Fetch from web
         logger.info(f"{self.name}: Fetching data from web for {url}")
@@ -58,9 +50,7 @@ class WebScraper:
 
         if "data" in web_data:
             raw_data = web_data.get("data")
-
-            self.cache_manager.save(url, raw_data, format=data_format)
-            self.content_storage.save(url, raw_data, format=data_format)
+            await self.content_storage.save_fetch(url, raw_data, format=data_format)
 
         web_data["data_format"] = data_format
         return web_data
@@ -77,8 +67,7 @@ class WebScraper:
 
         # Save processed data to cache and disk
         if processed_data:
-            self.cache_manager.save(key=url, obj=processed_data.get("data"), alias="processed", format=processed_data.get("data_processed_format"))
-            self.content_storage.save(key=url, obj=processed_data.get("data"), alias="processed", format=processed_data.get("data_processed_format"))
+            await self.content_storage.save_fetch(url, processed_data.get("data"), format=processed_data.get("data_processed_format"))
 
         processed_data["data_processed"] = True
         return processed_data
@@ -96,17 +85,11 @@ class WebScraper:
             "data_format": data_format
         })
         try:
-            # Try loading processed data from cache
-            cached_data = self.cache_manager.load(key=url, alias="processed")
-            if cached_data:
-                logger.info(f"{self.name}: Loaded processed data from cache for {url}")
-                return cached_data
-
-            # Try loading processed data from disk
-            disk_data = self.content_storage.load(key=url, alias="processed")
-            if disk_data:
-                logger.info(f"{self.name}: Loaded processed data from disk for {url}")
-                return disk_data
+            # Check if processed data is already available    
+            loaded_processed_data = await self.content_storage.load_fetch(key=url, alias="processed")
+            if loaded_processed_data:
+                logger.info(f"{self.name}: Loaded processed data from content storage for {url}")
+                return loaded_processed_data
 
             fetched_data = await self._fetch(url, data_format)
             if "data" not in fetched_data:
@@ -124,6 +107,7 @@ class WebScraper:
             return fetched_data
         except Exception as e:
             logger.error(f"[{self.name}] Error fetching or processing data for {url}: {e}")
+            logger.error(f"[{self.name}] Full stack trace: {traceback.format_exc()}")
             raise
 
 # Global web scraper instance

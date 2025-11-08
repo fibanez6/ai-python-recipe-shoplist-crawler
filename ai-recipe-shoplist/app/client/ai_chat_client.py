@@ -1,6 +1,7 @@
 """AI Chat Client Module"""
 
 import json
+import traceback
 
 from app.ia_provider.provider_factory import AIProvider
 from app.services.tokenizer_service import TokenizerService
@@ -24,7 +25,7 @@ class AIChatClient():
         # self.max_model_tokens = AI_SERVICE_SETTINGS.max_model_tokens
         # self.max_response_tokens = AI_SERVICE_SETTINGS.max_response_tokens
         # self.cache_manager = CacheManager(CACHE_SETTINGS)
-        # self.storage_manager = StorageManager(STORAGE_SETTINGS)
+        # self.storage_manager = BlobManager(BLOB_SETTINGS)
 
     def _truncate_to_max_tokens(self, text: str) -> str:
         """Truncate text to fit within the provider's max token limit."""
@@ -69,6 +70,7 @@ HTML content:
             return await self.provider.complete_chat(chat_params)
         except Exception as e:
             logger.error(f"[{self.name}] Error in extract_recipe_data: {e}")
+            logger.error(f"[{self.name}] Full stack trace: {traceback.format_exc()}")
             raise Exception("Failed to extract recipe data using AI provider.") from e
 
     async def search_best_match_products(self, ingredient: Ingredient, store: StoreConfig, fetch_content: list[dict]) -> ChatCompletionResult[Product]:
@@ -110,7 +112,7 @@ Store content:
 """
 
         # Truncate prompt if too long
-        prompt = self.truncate_to_max_tokens(prompt)
+        prompt = self._truncate_to_max_tokens(prompt)
 
         chat_params = {
             "messages": [

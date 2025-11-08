@@ -13,7 +13,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from app.config.logging_config import get_logger, setup_logging
-from app.manager.storage_manager import JOBLIB_AVAILABLE, StorageManager
+from app.manager.blob_manager import JOBLIB_AVAILABLE, StorageManager
 from app.models import Ingredient, Product, QuantityUnit, Recipe
 
 

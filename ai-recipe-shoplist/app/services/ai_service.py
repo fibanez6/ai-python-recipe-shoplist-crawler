@@ -1,6 +1,7 @@
 """AI service for intelligent web crawling and grocery search optimization."""
 
 import logging
+import traceback
 
 from app.client.ai_chat_client import get_chat_client
 from app.scrapers.html_scraper import get_web_scraper
@@ -57,6 +58,7 @@ class AIService:
             }
         except Exception as e:
             logger.error(f"[{self.name}] Error extracting recipe: {e}")
+            logger.error(f"[{self.name}] Full stack trace: {traceback.format_exc()}")
             # Fallback to basic parsing
             return {
                 "recipe": Recipe.default(),

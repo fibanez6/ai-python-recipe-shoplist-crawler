@@ -8,10 +8,12 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
+import aiofiles
 import joblib
+import asyncio
 
 from ..config.logging_config import get_logger, log_function_call
-from ..config.pydantic_config import STORAGE_SETTINGS
+from ..config.pydantic_config import BLOB_SETTINGS
 from ..utils.str_helpers import object_to_str
 
 logger = get_logger(__name__)
@@ -20,19 +22,19 @@ logger = get_logger(__name__)
 SOURCE_ALIAS="source"
 PROCESSED_ALIAS = "processed"
 
-class StorageManager:
+class BlobManager:
     """Manages saving and loading of web content to/from disk files."""
 
-    def __init__(self, base_path: Path = STORAGE_SETTINGS.base_path):
+    def __init__(self, base_path: Path = BLOB_SETTINGS.base_path):
         """
         Initialize the content storage.
         
         Args:
             tmp_folder: Base temporary folder for storage
         """
-        self.name = "StorageManager"
+        self.name = "BlobManager"
         self.base_path = base_path
-        self.enabled = STORAGE_SETTINGS.enabled
+        self.enabled = BLOB_SETTINGS.enabled
         
         # Create content folder if needed and saving is enabled
         if self.enabled:
@@ -47,29 +49,30 @@ class StorageManager:
     
      # ===== JSON SERIALIZATION (Best for Pydantic models) =====
 
-    def save_pydantic_as_json(self, obj: Any, filename: str) -> Path:
+    async def save_pydantic_as_json(self, obj: Any, filename: str) -> Path:
         """Save a Pydantic model as a JSON file."""
         file_path = self.base_path / f"{filename}.json"
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
+            async with aiofiles.open(file_path, 'w', encoding='utf-8') as f:
                 # Use Pydantic's built-in JSON serialization
                 if hasattr(obj, 'model_dump_json'):
                     # Pydantic v2
-                    f.write(obj.model_dump_json(indent=2))
+                    await f.write(obj.model_dump_json(indent=2))
                 elif hasattr(obj, 'json'):
                     # Pydantic v1
-                    f.write(obj.json(indent=2))
+                    await f.write(obj.json(indent=2))
                 else:
                     # Fallback for regular objects
-                    json.dump(obj.dict() if hasattr(obj, 'dict') else obj, f, indent=2, default=str)
+                    json_str = json.dumps(obj.dict() if hasattr(obj, 'dict') else obj, indent=2, default=str)
+                    await f.write(json_str)
                     
             logger.debug(f"[{self.name}] Saved Pydantic object to JSON file: {file_path}")
             return file_path
         except Exception as e:
             logger.error(f"[{self.name}] Error saving Pydantic object to JSON file: {file_path}")
             raise
-    
-    def load_pydantic_from_json(self, filename: str, model_class: type = None) -> Any:
+
+    async def load_pydantic_from_json(self, filename: str, model_class: type = None) -> Any:
         """
         Load a Pydantic model from JSON.
         
@@ -80,8 +83,9 @@ class StorageManager:
         file_path = self.base_path / f"{filename}.json"
      
         try:      
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+                content = await f.read()
+                data = json.loads(content)
             
             # Create the Pydantic model from the loaded data
             if model_class:
@@ -100,12 +104,13 @@ class StorageManager:
 
     # ===== PICKLE SERIALIZATION (For complex Python objects) =====
 
-    def save_with_pickle(self, obj: Any, filename: str) -> Path:
+    async def save_with_pickle(self, obj: Any, filename: str) -> Path:
         """Save an object using pickle serialization."""
         file_path = self.base_path / f"{filename}.pkl"
         try:
-            with open(file_path, 'wb') as f:
-                pickle.dump(obj, f)
+            async with aiofiles.open(file_path, 'wb') as f:
+                pickle_data = pickle.dumps(obj)
+                await f.write(pickle_data)
                 
             logger.debug(f"[{self.name}] Saved object to pickle file: {file_path}")
             return file_path
@@ -113,13 +118,14 @@ class StorageManager:
             logger.error(f"[{self.name}] Error saving pickle object to file: {file_path}: {e}")
             raise
 
-    def load_with_pickle(self, filename: str) -> Any:
+    async def load_with_pickle(self, filename: str) -> Any:
         """Load an object that was saved with pickle."""
         file_path = self.base_path / f"{filename}.pkl"
 
         try:    
-            with open(file_path, 'rb') as f:
-                obj = pickle.load(f)
+            async with aiofiles.open(file_path, 'rb') as f:
+                pickle_data = await f.read()
+                obj = pickle.loads(pickle_data)
             
             logger.debug(f"✅ Loaded object with pickle from: {file_path}")
             return obj
@@ -132,12 +138,13 @@ class StorageManager:
 
     # ===== JOBLIB SERIALIZATION (Efficient for large objects) =====
 
-    def save_with_joblib(self, obj: Any, filename: str) -> Path:
+    async def save_with_joblib(self, obj: Any, filename: str) -> Path:
         """Save an object using joblib serialization."""
         file_path = self.base_path / f"{filename}.joblib"
 
         try:
-            joblib.dump(obj, file_path)
+            # Run joblib.dump in thread pool to avoid blocking
+            await asyncio.to_thread(joblib.dump, obj, file_path)
             
             logger.debug(f"[{self.name}] Saved object to joblib file: {file_path}")
             return file_path
@@ -145,12 +152,13 @@ class StorageManager:
             logger.error(f"[{self.name}] Error saving joblib object to file: {file_path}")
             raise
 
-    def load_with_joblib(self, filename: str) -> Any:
+    async def load_with_joblib(self, filename: str) -> Any:
         """Load an object that was saved with joblib."""
         file_path = self.base_path / f"{filename}.joblib"
 
         try:
-            obj = joblib.load(file_path)
+            # Run joblib.load in thread pool to avoid blocking
+            obj = await asyncio.to_thread(joblib.load, file_path)
             logger.debug(f"✅ Loaded object with joblib from: {file_path}")
             return obj
         except FileNotFoundError:
@@ -161,8 +169,8 @@ class StorageManager:
             raise
 
     # ===== CUSTOM JSON SERIALIZATION (For complex objects) =====
-    
-    def save_custom_json(self, obj: Any, filename: str, custom_encoder=None) -> Path:
+
+    async def save_custom_json(self, obj: Any, filename: str, custom_encoder=None) -> Path:
         """
         Save objects with custom JSON encoding.
         Useful when you need custom serialization logic.
@@ -180,8 +188,9 @@ class StorageManager:
                         return obj.isoformat()
                     return str(obj)
             
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(obj, f, cls=CustomEncoder, indent=2, ensure_ascii=False)
+            json_str = json.dumps(obj, cls=CustomEncoder, indent=2, ensure_ascii=False)
+            async with aiofiles.open(file_path, 'w', encoding='utf-8') as f:
+                await f.write(json_str)
             
             logger.debug(f"✅ Saved object with custom JSON to: {file_path}")
             return file_path
@@ -189,13 +198,14 @@ class StorageManager:
             logger.error(f"[{self.name}] Error saving custom JSON object to file: {file_path}")
             raise
 
-    def load_custom_json(self, filename: str, custom_decoder=None) -> Any:
+    async def load_custom_json(self, filename: str, custom_decoder=None) -> Any:
         """Load objects with custom JSON decoding."""
         file_path = self.base_path / f"{filename}_custom.json"
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+                content = await f.read()
+                data = json.loads(content)
             
             if custom_decoder:
                 data = custom_decoder(data)
@@ -210,15 +220,15 @@ class StorageManager:
             raise
 
     # ===== STRING/TEXT SERIALIZATION =====
-    def save_as_string(self, data: str, filename: str, format: str = "txt") -> Path:
+    async def save_as_string(self, data: str, filename: str, format: str = "txt") -> Path:
         """
         Save plain string/text data to a file.
         """
         file_path = self.base_path / f"{filename}.{format}"
 
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(data)
+            async with aiofiles.open(file_path, 'w', encoding='utf-8') as f:
+                await f.write(data)
 
             logger.debug(f"✅ Saved string data to: {file_path}")
             return file_path
@@ -226,13 +236,13 @@ class StorageManager:
             logger.error(f"[{self.name}] Error saving string data to file: {file_path}")
             raise
 
-    def load_as_string(self, filename: str, format: str = "txt") -> str:
+    async def load_as_string(self, filename: str, format: str = "txt") -> str:
         """Load plain string/text data from a file."""
         file_path = self.base_path / f"{filename}.{format}"
         
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = f.read()
+            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+                data = await f.read()
             
             logger.debug(f"✅ Loaded string data from: {file_path}")
             return data
@@ -243,7 +253,7 @@ class StorageManager:
             logger.error(f"[{self.name}] Error loading string data from file: {file_path}")
             raise
 
-    def save_object_as_string(self, obj: Any, filename: str) -> Path:
+    async def save_object_as_string(self, obj: Any, filename: str) -> Path:
         """
         Convert any object to string representation and save it.
         Useful for debugging or simple text storage.
@@ -263,8 +273,8 @@ class StorageManager:
             else:
                 string_data = str(obj)
             
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(string_data)
+            async with aiofiles.open(file_path, 'w', encoding='utf-8') as f:
+                await f.write(string_data)
             
             logger.debug(f"✅ Saved object as string to: {file_path}")
             return file_path
@@ -272,7 +282,7 @@ class StorageManager:
             logger.error(f"[{self.name}] Error saving object as string to file: {file_path}")
             raise
 
-    def load_string_as_json(self, filename: str, model_class: type = None) -> Any:
+    async def load_string_as_json(self, filename: str, model_class: type = None) -> Any:
         """
         Load string data and attempt to parse as JSON.
         Optionally reconstruct as Pydantic model.
@@ -280,8 +290,8 @@ class StorageManager:
         file_path = self.base_path / f"{filename}_str.txt"
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                string_data = f.read()
+            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+                string_data = await f.read()
         except FileNotFoundError:
             logger.warning(f"[{self.name}] File not found: {file_path}")
             raise
@@ -308,7 +318,7 @@ class StorageManager:
 
     # ===== Metadata Management =====
 
-    def _save_metadata(self, filename: str, file_path: Path, alias: str, obj_size: int, format: str) -> dict:
+    async def _save_metadata(self, filename: str, file_path: Path, alias: str, obj_size: int, format: str) -> dict:
         """Save metadata dictionary to a JSON file."""
         metadata_path = self.base_path / f"{filename}_metadata.json"
 
@@ -322,8 +332,9 @@ class StorageManager:
                 "data_format": format
             }
 
-            with open(metadata_path, 'w', encoding='utf-8') as f:
-                json.dump(metadata, f, ensure_ascii=False, indent=2)
+            metadata_str = json.dumps(metadata, ensure_ascii=False, indent=2)
+            async with aiofiles.open(metadata_path, 'w', encoding='utf-8') as f:
+                await f.write(metadata_str)
 
             logger.debug(f"[{self.name}] Saved metadata to JSON file: {metadata_path}")
             return metadata
@@ -331,13 +342,14 @@ class StorageManager:
             logger.error(f"[{self.name}] Error saving metadata to JSON file: {metadata_path}: {e}")
             return None
 
-    def _load_metadata(self, filename: str) -> dict:
+    async def _load_metadata(self, filename: str) -> dict:
         """Load metadata dictionary from a JSON file."""
         metadata_path = self.base_path / f"{filename}_metadata.json"
 
         try:
-            with open(metadata_path, 'r', encoding='utf-8') as f:
-                metadata = json.load(f)
+            async with aiofiles.open(metadata_path, 'r', encoding='utf-8') as f:
+                content = await f.read()
+                metadata = json.loads(content)
 
             logger.debug(f"[{self.name}] Loaded metadata from JSON file: {metadata_path}")
             return metadata
@@ -353,7 +365,7 @@ class StorageManager:
 
     # def save(self, key: str, obj: Any, alias: str = SOURCE_ALIAS, format: str = "json", **kwargs) -> dict[str, str]:
         
-    def save(self, key: str, obj: Any, alias: str = SOURCE_ALIAS, format: str = "json", **kwargs) -> dict[str, str]:
+    async def save(self, key: str, obj: Any, alias: str = SOURCE_ALIAS, format: str = "json", **kwargs) -> dict[str, str]:
         """
         Generic save method that dispatches to appropriate serialization format.
         
@@ -374,12 +386,12 @@ class StorageManager:
         obj_size = sys.getsizeof(obj_str)
         obj_type = type(obj).__name__
 
-        log_function_call("StorageManager.save", {
-            "data_preview": obj_str[:20] + ("..." if len(obj_str) > 20 else ""),
+        log_function_call("BlobManager.save", {
             "data_type": obj_type,
             "alias": alias,
             "format": format,
-            "path": str(self.base_path)
+            "path": str(self.base_path),
+            "data_preview": obj_str[:20] + ("..." if len(obj_str) > 20 else "")
         })
 
         load_from = kwargs.get('data_from', None)
@@ -393,31 +405,31 @@ class StorageManager:
         try:
             # Dispatch to the appropriate save format
             if format == "json" or format == "pydantic" or format == "dict":
-                file_path = self.save_pydantic_as_json(obj, filename)
+                file_path = await self.save_pydantic_as_json(obj, filename)
             elif format == "pickle":
-                file_path = self.save_with_pickle(obj, filename)
+                file_path = await self.save_with_pickle(obj, filename)
             elif format == "joblib":
-                file_path = self.save_with_joblib(obj, filename)
+                file_path = await self.save_with_joblib(obj, filename)
             elif format == "custom_json":
                 custom_encoder = kwargs.get('custom_encoder', None)
-                file_path = self.save_custom_json(obj, filename, custom_encoder)
+                file_path = await self.save_custom_json(obj, filename, custom_encoder)
             elif format == "html":
-                file_path = self.save_as_string(obj, filename, format="html")
+                file_path = await self.save_as_string(obj, filename, format="html")
             else:
                 if isinstance(obj, str):
-                    file_path = self.save_as_string(obj, filename)
+                    file_path = await self.save_as_string(obj, filename)
                 else:
-                    file_path = self.save_object_as_string(obj, filename)
+                    file_path = await self.save_object_as_string(obj, filename)
 
             # Prepare metadata
-            metadata = self._save_metadata(filename, file_path, alias, obj_size, format)
+            metadata = await self._save_metadata(filename, file_path, alias, obj_size, format)
             logger.info(f"[{self.name}] Saved content to {file_path} and alias '{alias}'")
             return metadata
         except Exception as e:
             logger.warning(f"[{self.name}] Error saving content to disk for {filename}: {e}")
             return None
 
-    def load(self, key: str, alias: str = SOURCE_ALIAS, format: str = None, **kwargs) -> Optional[dict]:
+    async def load(self, key: str, alias: str = SOURCE_ALIAS, format: str = None, **kwargs) -> Optional[dict]:
         """
         Generic load method that dispatches to appropriate deserialization format.
         
@@ -433,7 +445,7 @@ class StorageManager:
         if not self.enabled:
             return None
 
-        log_function_call("StorageManager.load", {
+        log_function_call("BlobManager.load", {
             "storage_key": key,
             "alias": alias,
             "format": format,
@@ -446,7 +458,7 @@ class StorageManager:
 
             # Determine format from metadata if not provided
             if not format:
-                metadata = self._load_metadata(filename)
+                metadata = await self._load_metadata(filename)
                 if metadata:
                     format = metadata.get("data_format", "string")
                 else:
@@ -458,30 +470,31 @@ class StorageManager:
             if format == "json" or format == "pydantic" or format == "dict":
                 model_class = kwargs.get('model_class')
                 if model_class:
-                    obj = self.load_pydantic_from_json(filename, model_class)
+                    obj = await self.load_pydantic_from_json(filename, model_class)
                 else:
-                    obj = self.load_pydantic_from_json(filename)
+                    obj = await self.load_pydantic_from_json(filename)
             elif format == "pickle":
-                obj = self.load_with_pickle(filename)
+                obj = await self.load_with_pickle(filename)
             elif format == "joblib":
-                obj = self.load_with_joblib(filename)
+                obj = await self.load_with_joblib(filename)
             elif format == "custom_json":
                 custom_decoder = kwargs.get('custom_decoder', None)
-                obj = self.load_custom_json(filename, custom_decoder)
+                obj = await self.load_custom_json(filename, custom_decoder)
             elif format == "html":
-                obj = self.load_as_string(filename, format="html")
+                obj = await self.load_as_string(filename, format="html")
             else:
                 model_class = kwargs.get('model_class', None)
                 if model_class:
-                    obj = self.load_string_as_json(filename, model_class)
+                    obj = await self.load_string_as_json(filename, model_class)
                 else:
-                    obj = self.load_as_string(filename)
+                    obj = await self.load_as_string(filename)
 
             # Update metadata with loaded data info
             metadata["data_from"] = "local_disk"
             metadata["data"] = obj
+            obj_size = sys.getsizeof(obj)
 
-            logger.info(f"[{self.name}] Storage hit for key {filename} - {format} data from disk (alias='{alias}')")
+            logger.info(f"[{self.name}] Storage hit for key {filename} - '{format}' data and {obj_size} bytes from disk (alias='{alias}')")
             return metadata
         except FileNotFoundError:
             logger.warning(f"[{self.name}] No content file found on disk for {filename} in path {self.base_path} (alias='{alias}')")
@@ -495,7 +508,7 @@ class StorageManager:
 
     # ===== Clear Storage =====
 
-    def clear(self) -> int:
+    async def clear(self) -> int:
         """
         Remove all files in the content folder.
 
@@ -526,7 +539,7 @@ class StorageManager:
 
     # ===== Storage Statistics =====
 
-    def get_stats(self) -> dict[str, any]:
+    async def get_stats(self) -> dict[str, any]:
         """Get content storage statistics."""
         content_files_count = 0
         content_files_size = 0
@@ -543,18 +556,17 @@ class StorageManager:
             "entries": content_files_count,
             "total_size": content_files_size,
             "folder": str(self.base_path) if self.base_path.exists() else "N/A",
-            "saving_enabled": self.enable_saving,
-            "loading_enabled": self.enable_loading
+            "enabled": self.enabled
         }
 
 # Global storage instance
-_storage_instance = None
+_blob_instance = None
 
-def get_storage_manager() -> StorageManager:
+def get_blob_manager() -> BlobManager:
     """Get or create the global content storage instance."""
-    global _storage_instance
-    base_path = STORAGE_SETTINGS.base_path / "web_cache"
+    global _blob_instance
+    base_path = BLOB_SETTINGS.base_path / "web_cache"
 
-    if _storage_instance is None:
-        _storage_instance = StorageManager(base_path)
-    return _storage_instance
+    if _blob_instance is None:
+        _blob_instance = BlobManager(base_path)
+    return _blob_instance
