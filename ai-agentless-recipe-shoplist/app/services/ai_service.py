@@ -4,7 +4,8 @@ import logging
 import traceback
 
 from app.client.ai_chat_client import get_chat_client
-from app.scrapers.html_scraper import get_web_scraper
+from app.scrapers.html_scraper import get_html_scraper
+from app.scrapers.scraper_factory import ScraperFactory
 
 from ..config.logging_config import get_logger
 from ..config.store_config import StoreConfig
@@ -18,7 +19,7 @@ class AIService:
     
     def __init__(self):
         self.name = "AIService"
-        self.web_scraper = get_web_scraper()
+        self.web_scraper = get_html_scraper()
         self.ai_chat_client = get_chat_client()
     
     async def extract_recipe_intelligently(self, url: str) -> dict:
@@ -77,26 +78,42 @@ class AIService:
             for store in stores:
                 try:
                     # Fetch search page content
-                    logger.info(f"[{self.name}] Searching products in store {store.name} from ingredient {ingredient.name}")
+                    logger.info((f"[{self.name}] Searching products", {
+                        "store_id": store.store_id,
+                        "ingredient": ingredient.name,
+                        "scraper_type": store.search_type
+                    }))
 
                     # Use web scraper to fetch and process content
-                    url = store.get_search_url(ingredient.name)
-                    fetch_result = await self.web_scraper.fetch_and_process(url, store.html_selectors, store.search_type)
+                    scraper = ScraperFactory.create_scraper(store)
+                    fetch_result = await scraper.query_products(ingredient.name, store)
+
+                    # url = store.get_search_url(ingredient.name)
+                    # fetch_result = await self.web_scraper.fetch_and_process(url, store.html_selectors, store.search_type)
 
                     if "data" not in fetch_result:
                         raise ValueError("No data found in fetched result for ingredient extraction")
                     
-                    store_fetch_results[store.store_id] = fetch_result
+                    # Store the fetched results
+                    results = fetch_result.get("data", [])
+                    
+                    if metadata := store.get_search_metadata():
+                        results["metadata"] = metadata
+
+                    # Save fetch results per store
+                    store_fetch_results[store.store_id] = results
                 except Exception as e:
                     logger.error(f"[{self.name}] Error searching products in store {store.name}: {e}")
                     continue
 
-            # Search for best match products using AI provider
-            fetch_data_processed = []
-            for fetch in store_fetch_results.values():
-                if fetch.get("data"):
-                    fetch_data_processed.extend(fetch.get("data"))
-            ia_response: ChatCompletionResult[Product] = await self.ai_chat_client.search_best_match_products(ingredient, store, fetch_data_processed)
+            # # Search for best match products using AI provider
+            # fetch_data_processed = []
+            # for fetch in store_fetch_results.values():
+            #     if fetch.get("data"):
+            #         fetch_data_processed.extend(fetch.get("data"))
+
+            # Use AI to find the best match products
+            ia_response: ChatCompletionResult[Product] = await self.ai_chat_client.search_best_match_products(ingredient, store_fetch_results)
 
             # Parse AI response into Product model
             product = ia_response.content if isinstance(ia_response.content, Product) else Product(**ia_response.content)

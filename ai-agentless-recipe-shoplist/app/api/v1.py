@@ -11,9 +11,12 @@ from fastapi import APIRouter, Form, HTTPException
 from pydantic import BaseModel
 
 from app.config.logging_config import get_logger
+from app.config.pydantic_config import AI_SERVICE_SETTINGS
 from app.config.store_config import StoreConfig
+from app.ia_provider.provider_factory import AIProvider
 from app.models import (
     APIResponse,
+    ChatCompletionRequest,
     Ingredient,
     Product,
     QuantityUnit,
@@ -27,6 +30,7 @@ from app.models import (
 from app.services.ai_service import get_ai_service
 from app.services.grocery_service import grocery_service
 from app.services.web_fetcher import get_web_fetcher
+from app.storage.storage_manager import get_storage_manager
 
 # Get module logger
 logger = get_logger(__name__)
@@ -96,6 +100,9 @@ async def search_stores(request: SearchStoresRequest) -> SearchStoresResponse:
         # Use AI to optimize product matching
         ai_service = get_ai_service()
 
+        # Import parallel utilities
+        from app.utils.parallel_utils import AsyncMap
+
         async def search_ingredient(ingredient: Ingredient):
             """Search for a single ingredient."""
             logger.info(f"[API] Searching stores for ingredient: {ingredient.name}")
@@ -105,19 +112,19 @@ async def search_stores(request: SearchStoresRequest) -> SearchStoresResponse:
 
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug((f"[API] AI search for ingredient '{ingredient.name}' - output:", response))
-
-            # Be polite to avoid rate limits
-            await asyncio.sleep(0.5)
             
             return response
 
-        # Process ingredients concurrently using asyncio.gather
+        # Process ingredients concurrently using parallel utilities
         product_results = []
         ia_stats = []
         
-        # Use asyncio.gather for concurrent async operations
-        responses = await asyncio.gather(
-            *[search_ingredient(ingredient) for ingredient in ingredients],
+        # Use AsyncMap for concurrent async operations with rate limiting
+        responses = await AsyncMap.map(
+            search_ingredient,
+            ingredients,
+            max_concurrency=3,  # Limit concurrency to be polite to APIs
+            delay=0.5,          # 0.5 second delay between requests
             return_exceptions=True
         )
 
@@ -141,7 +148,7 @@ async def search_stores(request: SearchStoresRequest) -> SearchStoresResponse:
 
         return SearchStoresResponse(
             success=True,
-            stores=[Store.mapConfig(store) for store in stores],
+            stores=[Store.mapConfig(store.name, store.display_name, store.region, store.base_url) for store in stores],
             products=product_results,
             ia_stats=ia_stats,
             timestamp=datetime.now().isoformat()
@@ -178,7 +185,6 @@ async def get_fetcher_content(recipe_url: str = Form(...)):
         timestamp=datetime.now().isoformat()
     )
 
-
 @api_v1_router.get("/fetcher-stats")
 async def get_fetcher_stats():
     """Get web fetcher cache statistics."""
@@ -199,7 +205,6 @@ async def get_fetcher_stats():
         timestamp=datetime.now().isoformat()
     )
 
-
 @api_v1_router.post("/clear-fetcher-cache")
 async def clear_fetcher_cache():
     """Clear the web fetcher cache."""
@@ -211,7 +216,6 @@ async def clear_fetcher_cache():
         data={"message": "Fetcher cache cleared successfully"},
         timestamp=datetime.now().isoformat()
     )
-
 
 @api_v1_router.post("/clear-content-files")
 async def clear_content_files():
@@ -225,41 +229,75 @@ async def clear_content_files():
         timestamp=datetime.now().isoformat()
     )
 
-
 @api_v1_router.get("/demo")
-async def demo_recipe():
-    """Demo endpoint with a sample recipe."""
-    sample_url = "https://www.allrecipes.com/recipe/213742/cheesy-chicken-broccoli-casserole/"
-    
-    # Create a mock recipe for demo
-    demo_recipe = Recipe(
-        title="Cheesy Chicken Broccoli Casserole",
-        url=sample_url,
-        description="A delicious comfort food casserole",
-        servings=6,
-        prep_time="15 minutes",
-        cook_time="25 minutes",
-        ingredients=[
-            Ingredient(name="chicken breast", quantity=2, unit=QuantityUnit.PIECE, original_text="2 chicken breasts"),
-            Ingredient(name="broccoli", quantity=2, unit=QuantityUnit.CUP, original_text="2 cups broccoli florets"),
-            Ingredient(name="cheddar cheese", quantity=1, unit=QuantityUnit.CUP, original_text="1 cup shredded cheddar cheese"),
-            Ingredient(name="rice", quantity=1, unit=QuantityUnit.CUP, original_text="1 cup cooked rice"),
-            Ingredient(name="cream of mushroom soup", quantity=1, unit=QuantityUnit.CAN, original_text="1 can cream of mushroom soup")
-        ],
-        instructions=[
-            "Preheat oven to 350°F",
-            "Cook chicken and broccoli",
-            "Mix all ingredients in casserole dish",
-            "Bake for 25 minutes until bubbly"
-        ]
-    )
+async def demo_recipe() -> SearchStoresResponse:
+    """Demo endpoint that returns search stores response from gazpacho stub."""
+    try:
+        import os
+        from pathlib import Path
+
+        # Get the project root directory
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent
+        stub_file = project_root / "stub_responses" / "search_stores" / "gazpacho.json"
+        
+        # Read the stub response file
+        with open(stub_file, 'r', encoding='utf-8') as f:
+            stub_data = json.load(f)
+        
+        # # Parse the stub data into SearchStoresResponse
+        # # Convert the products to Product objects
+        # products = []
+        # for product_data in stub_data.get("products", []):
+        #     product = Product(**product_data)
+        #     products.append(product)
+        
+        # # Convert stores to Store objects
+        # stores = []
+        # for store_data in stub_data.get("stores", []):
+        #     store = Store(**store_data)
+        #     stores.append(store)
+        
+        # # Create and return the SearchStoresResponse
+        # return SearchStoresResponse(
+        #     success=stub_data.get("success", True),
+        #     stores=stores,
+        #     products=products,
+        #     ia_stats=stub_data.get("ia_stats", []),
+        #     timestamp=datetime.now().isoformat()
+        # )
+
+        return SearchStoresResponse(**stub_data)
+        
+    except Exception as e:
+        logger.error(f"Error loading demo stub data: {e}")
+        # Fallback to empty response
+        return SearchStoresResponse(
+            success=False,
+            stores=[],
+            products=[],
+            ia_stats=[],
+            timestamp=datetime.now().isoformat()
+        )
+
+
+@api_v1_router.post("/chat")
+
+async def chat(request: ChatCompletionRequest):
+    """Chat endpoint (placeholder)."""
+
+    agent = AIProvider.create_provider(AI_SERVICE_SETTINGS.provider)
+
+    messages = [{"role": "user", "content": request.prompt}]
+    if request.system_message:
+        messages.insert(0, {"role": "system", "content": request.system_message})
+
+    chat_params = {"messages": messages}
+
+    response = await agent.complete_chat(chat_params)
     
     return APIResponse(
         success=True,
-        data={
-            "recipe": demo_recipe.dict(),
-            "message": "Demo recipe loaded. Use /api/v1/optimize-shopping to continue.",
-            "next_step": f"/api/v1/optimize-shopping (POST with recipe_url={sample_url})"
-        },
+        data=response,
         timestamp=datetime.now().isoformat()
     )

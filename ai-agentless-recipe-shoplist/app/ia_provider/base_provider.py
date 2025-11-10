@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 import traceback
 
 from app.storage.storage_manager import get_storage_manager
-from app.storage.blob_manager import BlobManager
-from app.storage.cache_manager import CacheManager
 
 from ..config.logging_config import get_logger, log_function_call
 from ..models import ChatCompletionResult
@@ -18,11 +16,7 @@ from ..utils.ai_helpers import (
 # Get module logger
 logger = get_logger(__name__)
 
-from ..config.pydantic_config import (
-    AI_SERVICE_SETTINGS,
-    BLOB_SETTINGS,
-    CACHE_SETTINGS,
-)
+from ..config.pydantic_config import AI_SERVICE_SETTINGS
 from ..utils.retry_utils import (
     AIRetryConfig,
     NetworkError,
@@ -101,7 +95,7 @@ class BaseAIProvider(ABC):
                         success=False,
                         refusal="AI provider chat calls are disabled.",
                     )
-
+                
                 if "response_format" in chat_params:
                     response = await self.client.chat.completions.parse(**chat_params)
                 else:
@@ -116,8 +110,8 @@ class BaseAIProvider(ABC):
 
                 return ChatCompletionResult(
                     success=False if message.refusal else True,
-                    content=message.parsed if message.parsed else message.content,
-                    refusal=message.refusal if message.refusal else None,
+                    content=message.parsed if hasattr(message, "parsed") else message.content,
+                    refusal=message.refusal if hasattr(message, "refusal") else None,
                     metadata=metadata
                 )
             except Exception as e:

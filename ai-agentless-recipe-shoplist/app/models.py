@@ -3,9 +3,8 @@
 from enum import Enum
 from typing import Any, Generic, Optional, TypeVar
 
+import rich
 from pydantic import BaseModel, Field
-
-from app.config.store_config import StoreConfig
 
 
 class QuantityUnit(str, Enum):
@@ -62,12 +61,14 @@ class Ingredient(BaseModel):
     brand_preference: Optional[str] = Field(None, description="Preferred brand for the ingredient")
 
     def __str__(self) -> str:
-        name_str = f"{self.name}"
-        qty_str = f": {self.quantity} " if self.quantity is not None else "1 "
-        unit_str = f"{self.unit.value} " if self.unit is not None else "unit "
-        brand_str = f" (Preference brand: {self.brand_preference}) " if self.brand_preference else ""
-        return f"{name_str}{qty_str}{unit_str}{brand_str}"
-
+        name_str = self.name
+        qty_str = f": {self.quantity or 1} "
+        unit_str = f"{self.unit.value} "
+        brand_str = f"(Preference brand: {self.brand_preference}) " if self.brand_preference else ""
+        category_str = f"({self.category})" if self.category else ""
+        alternatives_str = f" Alternatives: {', '.join(self.alternatives)}." if self.alternatives else ""
+        return f"{name_str}{qty_str}{unit_str}{brand_str}{category_str}{alternatives_str}".strip()
+    
 class Recipe(BaseModel):
     """Represents a parsed recipe."""
     title: str = Field(..., description="Recipe title")
@@ -115,20 +116,6 @@ class Product(BaseModel):
             store="Example Store"
         )
 
-    # def display(self) -> dict:
-    #     """Return a dict with only selected fields."""
-    #     return {
-    #         "name": self.name,
-    #         "store": self.store,
-    #         "price": self.price,
-    #         "url": self.url,
-    #         "image_url": self.image_url,
-    #         "brand": self.brand,
-    #         "unit_price": self.unit_price,
-    #         "quantity": self.quantity,
-    #         "reasoning": self.ia_reasoning
-    #     }
-
 class Store(BaseModel):
     """Represents a grocery store."""
     name: str = Field(..., description="Store name")
@@ -137,13 +124,13 @@ class Store(BaseModel):
     base_url: Optional[str] = Field(None, description="Store base URL")
 
     @staticmethod
-    def mapConfig(config: StoreConfig) -> "Store":
+    def mapConfig(name: str, display_name: str, region: str, base_url: str) -> "Store":
         """Map to store config."""
         return Store (
-            name = config.name,
-            display_name = config.display_name,
-            region = config.region,
-            base_url = config.base_url
+            name = name,
+            display_name = display_name,
+            region = region,
+            base_url = base_url
         )
 
 class ShopphingCart(BaseModel):
@@ -234,3 +221,13 @@ class SearchStoresResponse(BaseModel):
     products: list[Product] = Field(default_factory=list, description="Products found")
     ia_stats: Optional[list[dict]] = Field(default_factory=list, description="Intelligent Assistant stats")
     timestamp: str = Field(..., description="Response timestamp")
+
+
+class ChatCompletionRequest(BaseModel):
+    """Request for AI chat completion calls."""
+    system_message: Optional[str] = Field(None, description="System message for context", examples={"You are a funny sage assistant."})
+    prompt: str = Field(..., description="The prompt to send to the AI service", examples={"if the sky is glue and apples are red, what colour is 'el caballo blanco de Franco'?"})
+    # model: Optional[str] = Field(None, description="AI model to use")
+    # temperature: Optional[float] = Field(0.7, description="Sampling temperature")
+    # max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
+    # response_format: Optional[str] = Field(None, description="Expected response format")

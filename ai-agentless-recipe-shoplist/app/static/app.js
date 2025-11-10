@@ -7,10 +7,13 @@ class RecipeShoplistApp {
     this.currentOptimization = null;
     this.currentProducts = [];
     this.ingredientProductMap = new Map();
+    this.demoManager = null;
     this.init();
   }
 
   init() {
+    // Initialize demo manager
+    this.demoManager = new DemoManager(this);
     this.setupEventListeners();
     this.checkUrlParams();
   }
@@ -23,7 +26,7 @@ class RecipeShoplistApp {
     }
 
     // Demo button
-    window.loadDemo = () => this.loadDemo();
+    window.loadDemo = () => this.demoManager.loadDemo();
 
     // Store selection
     this.setupStoreSelection();
@@ -95,7 +98,7 @@ class RecipeShoplistApp {
     const urlParams = new URLSearchParams(window.location.search);
     const demoParam = urlParams.get("demo");
     if (demoParam === "true") {
-      this.loadDemo();
+      this.demoManager.loadDemo();
     }
   }
 
@@ -220,33 +223,6 @@ class RecipeShoplistApp {
         console.warn("Product missing ingredient property:", product);
       }
     });
-  }
-
-  async loadDemo() {
-    try {
-      this.showLoading("Loading demo recipe...");
-
-      // Load demo recipe
-      const demoResponse = await fetch(`${this.apiBase}/demo`);
-      const demoResult = await demoResponse.json();
-
-      if (!demoResult.success) {
-        throw new Error("Failed to load demo");
-      }
-
-      // Set demo URL in form
-      const urlInput = document.getElementById("recipeUrl");
-      if (urlInput) {
-        urlInput.value = demoResult.data.recipe.url;
-      }
-
-      // Process the demo recipe
-      await this.processRecipe(demoResult.data.recipe.url);
-    } catch (error) {
-      console.error("Error loading demo:", error);
-      this.showError(`Demo error: ${error.message}`);
-      this.hideLoading();
-    }
   }
 
   displayRecipeResults(data) {
@@ -399,9 +375,20 @@ class RecipeShoplistApp {
             ).toFixed(2)}
                </small>
                <br>
-               <small class="text-muted">${
-                 bestProduct.name || "Product name unavailable"
-               }</small>
+               ${
+                 bestProduct.url
+                   ? `<a href="${
+                       bestProduct.url
+                     }" target="_blank" class="text-decoration-none">
+                      <small class="text-primary">
+                        <i class="fas fa-external-link-alt me-1"></i>
+                        ${bestProduct.name || "Product name unavailable"}
+                      </small>
+                    </a>`
+                   : `<small class="text-muted">${
+                       bestProduct.name || "Product name unavailable"
+                     }</small>`
+               }
              </div>`
           : `<div class="product-info">
                <small class="text-warning">
@@ -580,9 +567,17 @@ class RecipeShoplistApp {
                             <h6>${ingredient.name}</h6>
                             <div class="ingredient-quantity">${quantityText}</div>
                             <small class="text-muted">
-                                ${product.store} - ${
-            product.title
-          } - $${product.price.toFixed(2)}
+                                ${product.store} - 
+                                ${
+                                  product.url
+                                    ? `<a href="${
+                                        product.url
+                                      }" target="_blank" class="text-decoration-none text-primary">
+                                       <i class="fas fa-external-link-alt me-1"></i>
+                                       ${product.title || product.name}
+                                     </a>`
+                                    : product.title || product.name
+                                } - $${product.price.toFixed(2)}
                             </small>
                         </div>
                         <div class="text-end">

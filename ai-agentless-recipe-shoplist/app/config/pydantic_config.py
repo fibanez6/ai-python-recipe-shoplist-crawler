@@ -22,7 +22,7 @@ class WebFetcherSettings(BaseSettings):
     
     model_config = ConfigDict(env_prefix="FETCHER_")
 
-class WebScraperSettings(BaseSettings):
+class HTMLScraperSettings(BaseSettings):
     """Web scraper configuration settings."""
     html_to_text: bool = Field(default=False, description="Convert HTML content to text after extraction")
 
@@ -178,12 +178,20 @@ class CacheSettings(BaseSettings):
 
     model_config = ConfigDict(env_prefix="CACHE_")
 
+class RapidAPISettings(BaseSettings):
+    """RapidAPI configuration settings."""
+
+    api_key: str = Field(default="", description="RapidAPI key")
+    api_host: str = Field(default="", description="RapidAPI host")
+
+    model_config = ConfigDict(env_prefix="RAPID_")
+
 class AppSettings(BaseSettings):
     """Main application settings that combines all configuration sections."""
     
     # Configuration sections
     web_fetcher: WebFetcherSettings = Field(default_factory=WebFetcherSettings)
-    web_scraper: WebScraperSettings = Field(default_factory=WebScraperSettings)
+    web_scraper: HTMLScraperSettings = Field(default_factory=HTMLScraperSettings)
     ai_provider: AIProviderSettings = Field(default_factory=AIProviderSettings)
     openai: OpenAISettings = Field(default_factory=OpenAISettings)
     azure: AzureOpenAISettings = Field(default_factory=AzureOpenAISettings)
@@ -196,10 +204,11 @@ class AppSettings(BaseSettings):
     tiktoken: TiktokenSettings = Field(default_factory=TiktokenSettings)
     blob: BlobSettings = Field(default_factory=BlobSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
+    rapid_api: RapidAPISettings = Field(default_factory=RapidAPISettings)
 
     @field_validator('web_fetcher', 'web_scraper', 'ai_provider', 'openai', 'azure', 
                      'ollama', 'github', 'logging', 'server', 'retry', 'mock', 'tiktoken', 
-                     'blob', 'cache', mode='before')
+                     'blob', 'cache', 'rapid_api', mode='before')
     @classmethod
     def ensure_settings_instances(cls, v, info):
         """Ensure all settings are properly instantiated."""
@@ -277,8 +286,12 @@ settings = AppSettings()
 
 SERVER_SETTINGS = settings.server
 
+# Web fetcher and scraper settings
 FETCHER_SETTINGS = settings.web_fetcher
 WEB_SCRAPER_SETTINGS = settings.web_scraper
+RAPID_API_SETTINGS = settings.rapid_api
+
+# Blob storage settings
 BLOB_SETTINGS = settings.blob
 CACHE_SETTINGS = settings.cache
 
