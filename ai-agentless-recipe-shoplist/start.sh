@@ -11,20 +11,16 @@ echo "================================================="
 python_version=$(python3 --version 2>&1)
 echo "✓ Python version: $python_version"
 
-# Check if virtual environment exists
-if [ ! -d ".venv" ]; then
-    echo "📦 Creating virtual environment..."
-    python3 -m venv .venv
+# Check if uv is installed
+if ! command -v uv &> /dev/null; then
+    echo "❌ uv is not installed. Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    source $HOME/.local/bin/env
 fi
 
-# Activate virtual environment
-echo "🔧 Activating virtual environment..."
-source .venv/bin/activate
-
-# Install/upgrade dependencies
-echo "📚 Installing dependencies..."
-pip install --upgrade pip
-pip install -r requirements.txt
+# Sync dependencies with uv
+echo "� Syncing dependencies with uv..."
+uv sync
 
 # Check if .env file exists
 if [ ! -f ".env" ]; then
@@ -110,7 +106,7 @@ mkdir -p generated_bills
 
 # Validate configuration using Python
 echo "🔧 Validating configuration..."
-python3 -c "
+uv run python -c "
 import sys
 sys.path.append('.')
 try:
@@ -162,5 +158,5 @@ if [ -z "$server_port" ]; then
     server_port="8000"
 fi
 
-# Run with uvicorn
-exec uvicorn app.main:app --reload --host "$server_host" --port "$server_port"
+# Run with uv and uvicorn
+exec uv run uvicorn app.main:app --reload --host "$server_host" --port "$server_port"
