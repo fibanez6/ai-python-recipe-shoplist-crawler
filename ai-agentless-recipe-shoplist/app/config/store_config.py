@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Any, Optional
 
 from app.config.pydantic_config import RAPID_API_SETTINGS
+from urllib.parse import urlencode
 
 
 class StoreRegion(str, Enum):
@@ -41,6 +42,12 @@ class StoreConfig:
     search_api_result_jsonpath: Optional[str] = None  # e.g., "data.items" for nested JSON responses
     search_api_result_jsonrules: Optional[dict[str, Any]] = None  # Extraction rules for JSON responses
 
+    # Product URL template
+    product_url: Optional[str] = None  # Template for product URL, e.g., "https://store.com/product/{id}"
+
+    # AI additional information
+    ai_additional_info: Optional[str] = None
+
     # Request settings
     request_rate_limit_delay: float = 1.0
     request_timeout: int = 30
@@ -52,16 +59,26 @@ class StoreConfig:
     def get_search_url(self, query: str) -> str:
         """Generate search URL for a query."""
         params = self.get_query_params(query)
-        params_str = "&".join(f"{key}={value}" for key, value in params.items())
+        params_str = urlencode(params)
 
         return f"{self.search_url}?{params_str}"
     
     def get_query_params(self, query: str) -> dict:
         """Generate product query string."""
         return {
-            self.search_query_param: query.replace(" ", "%20"),
+            # self.search_query_param: query.replace(" ", "%20"),
+            self.search_query_param: query,
             **(self.search_params or {}),
         }
+    
+    def get_search_metadata(self) -> dict[str, Any]:
+        """Get metadata about the store for search purposes."""
+        metadata = {}
+        if self.ai_additional_info:
+            metadata["ai_additional_info"] = self.ai_additional_info
+        if self.product_url:
+            metadata["product_url"] = self.product_url
+        return metadata
 
 # Australian grocery stores
 STORE_CONFIGS: dict[str, StoreConfig] = {
@@ -93,6 +110,8 @@ STORE_CONFIGS: dict[str, StoreConfig] = {
         search_api_result_jsonrules={
             "data": {
                 "fields": [
+                    "sku",
+                    "urlSlugText",
                     "name", 
                     "brandName", 
                     "quantityUnit", 
@@ -106,6 +125,8 @@ STORE_CONFIGS: dict[str, StoreConfig] = {
                 }
             }
         },
+        product_url="https://www.aldi.com.au/product/{urlSlugText}-{sku}",
+        ai_additional_info="Image url: slug=urlencode(name) and width=864",
         request_rate_limit_delay=2.0  # More conservative for ALDI
     ),
 
@@ -129,6 +150,8 @@ STORE_CONFIGS: dict[str, StoreConfig] = {
         search_api_result_jsonrules={
             "results": True
         },
+        product_url="https://www.coles.com.au/product/{slug}",
+        ai_additional_info="Generate product slug from product name by converting to lowercase and replacing spaces with hyphens",
         request_rate_limit_delay=1.5,
     ),
     
@@ -150,6 +173,8 @@ STORE_CONFIGS: dict[str, StoreConfig] = {
             "product_brand": "[data-testid='product-brand']",
             "product_size": "[data-testid='product-package-size']"
         },
+        product_url="https://www.woolworths.com.au/shop/productdetails/{id}/{slug}",
+        ai_additional_info="Generate product ID from SKU or product number, and slug from product name",
         request_rate_limit_delay=1.2,
     ),
         
@@ -168,6 +193,8 @@ STORE_CONFIGS: dict[str, StoreConfig] = {
             "product_brand": ".product-brand",
             "product_size": ".product-weight"
         },
+        product_url="https://www.iga.com.au/products/{category}/{slug}",
+        ai_additional_info="Generate category from product type (e.g., 'fresh', 'pantry', 'dairy') and slug from product name",
         request_rate_limit_delay=1.8
     ),
 

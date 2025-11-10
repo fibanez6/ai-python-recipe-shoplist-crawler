@@ -184,6 +184,49 @@ body {
     margin-bottom: 0.2rem;
 }
 
+/* Product Link Styles */
+.product-info a {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    background-color: rgba(0, 123, 255, 0.1);
+    border: 1px solid rgba(0, 123, 255, 0.2);
+}
+
+.product-info a:hover {
+    background-color: rgba(0, 123, 255, 0.2);
+    border-color: rgba(0, 123, 255, 0.4);
+    transform: translateY(-1px);
+    text-decoration: none !important;
+}
+
+.product-info a .fas {
+    font-size: 0.7rem;
+    opacity: 0.8;
+}
+
+/* Product link in ingredient items */
+.ingredient-item a,
+.product-link {
+    padding: 0.2rem 0.4rem !important;
+    border-radius: 4px !important;
+    transition: all 0.2s ease !important;
+    background-color: rgba(0, 123, 255, 0.1) !important;
+    border: 1px solid rgba(0, 123, 255, 0.2) !important;
+    display: inline-block !important;
+    margin-top: 0.25rem !important;
+}
+
+.ingredient-item a:hover,
+.product-link:hover {
+    background-color: rgba(0, 123, 255, 0.2) !important;
+    border-color: rgba(0, 123, 255, 0.4) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
+}
+
 .optimization-summary {
     background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
     color: white;

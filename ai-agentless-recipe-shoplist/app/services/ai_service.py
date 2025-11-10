@@ -94,7 +94,14 @@ class AIService:
                     if "data" not in fetch_result:
                         raise ValueError("No data found in fetched result for ingredient extraction")
                     
-                    store_fetch_results[store.store_id] = fetch_result.get("data", [])
+                    # Store the fetched results
+                    results = fetch_result.get("data", [])
+                    
+                    if metadata := store.get_search_metadata():
+                        results["metadata"] = metadata
+
+                    # Save fetch results per store
+                    store_fetch_results[store.store_id] = results
                 except Exception as e:
                     logger.error(f"[{self.name}] Error searching products in store {store.name}: {e}")
                     continue

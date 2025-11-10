@@ -399,9 +399,20 @@ class RecipeShoplistApp {
             ).toFixed(2)}
                </small>
                <br>
-               <small class="text-muted">${
-                 bestProduct.name || "Product name unavailable"
-               }</small>
+               ${
+                 bestProduct.url
+                   ? `<a href="${
+                       bestProduct.url
+                     }" target="_blank" class="text-decoration-none">
+                      <small class="text-primary">
+                        <i class="fas fa-external-link-alt me-1"></i>
+                        ${bestProduct.name || "Product name unavailable"}
+                      </small>
+                    </a>`
+                   : `<small class="text-muted">${
+                       bestProduct.name || "Product name unavailable"
+                     }</small>`
+               }
              </div>`
           : `<div class="product-info">
                <small class="text-warning">
@@ -580,9 +591,17 @@ class RecipeShoplistApp {
                             <h6>${ingredient.name}</h6>
                             <div class="ingredient-quantity">${quantityText}</div>
                             <small class="text-muted">
-                                ${product.store} - ${
-            product.title
-          } - $${product.price.toFixed(2)}
+                                ${product.store} - 
+                                ${
+                                  product.url
+                                    ? `<a href="${
+                                        product.url
+                                      }" target="_blank" class="text-decoration-none text-primary">
+                                       <i class="fas fa-external-link-alt me-1"></i>
+                                       ${product.title || product.name}
+                                     </a>`
+                                    : product.title || product.name
+                                } - $${product.price.toFixed(2)}
                             </small>
                         </div>
                         <div class="text-end">

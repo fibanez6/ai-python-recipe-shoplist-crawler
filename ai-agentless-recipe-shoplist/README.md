@@ -17,27 +17,27 @@ An intelligent Python 3.11+ application that crawls recipe websites, extracts in
 - 💾 **Advanced Storage System**: Multi-format async storage with JSON, Pickle, and Joblib support
 - 🔄 **Intelligent Caching**: Memory and disk caching for improved performance
 
-> � **[Storage System Documentation](doco/storage-system.md)**: Comprehensive guide to the async storage architecture, including BlobManager, CacheManager, and StorageManager with usage examples and best practices.
+> � **[Storage System Documentation](docs/storage-system.md)**: Comprehensive guide to the async storage architecture, including BlobManager, CacheManager, and StorageManager with usage examples and best practices.
 
 ## 📱 Application Screenshots
 
 ### Initial Recipe Input Form
 <div align="center">
-   <img src="doco/img/shopping_list_form.png" alt="Shopping List Form" width="75%">
+   <img src="docs/img/shopping_list_form.png" alt="Shopping List Form" width="75%">
 </div>
 
 *The main interface where users enter a recipe URL to begin the ingredient extraction process.*
 
 ### Example Recipe - Gazpacho
 <div align="center">
-   <img src="doco/img/gazpacho_recipe.png" alt="Gazpacho Recipe" width="50%">
+   <img src="docs/img/gazpacho_recipe.png" alt="Gazpacho Recipe" width="50%">
 </div>
 
 *Example recipe processing using [Gazpacho from RecipeTin Eats](https://www.recipetineats.com/gazpacho/) - demonstrating AI-powered ingredient extraction from recipe websites.*
 
 ### Search Results Display
 <div align="center">
-   <img src="doco/img/shopping_list_results.png" alt="Shopping List Results" width="75%">
+   <img src="docs/img/shopping_list_results.png" alt="Shopping List Results" width="75%">
 </div>
 
 *Results showing extracted ingredients and matched products from various grocery stores.*
@@ -65,7 +65,7 @@ ai-recipe-shoplist/
 │   │   ├── web_data_service.py     # Web data processing
 │   │   ├── grocery_service.py      # Grocery store management
 │   │   └── store_crawler.py        # Store crawling services
-│   ├── storage/                    # Storage system (see doco/storage-system.md)
+│   ├── storage/                    # Storage system (see docs/storage-system.md)
 │   │   ├── blob_manager.py         # Async blob storage management
 │   │   ├── cache_manager.py        # Memory cache management
 │   │   └── storage_manager.py      # Unified storage operations
@@ -87,7 +87,7 @@ ai-recipe-shoplist/
 │       ├── ai_helpers.py          # AI utility functions
 │       ├── html_helpers.py        # HTML processing utilities
 │       └── str_helpers.py         # String processing utilities
-├── doco/
+├── docs/
 │   ├── img/                       # Documentation images
 │   ├── storage-system.md          # Storage system documentation
 │   ├── configuration.md           # Configuration documentation
@@ -292,7 +292,7 @@ Or use the web interface for an interactive experience.
 
 The application uses **Pydantic Settings** for comprehensive type-safe configuration management with automatic environment variable loading and validation.
 
-> 📖 **[Configuration Documentation](doco/configuration.md)**: Complete configuration guide including environment variables, AI provider setup, security best practices, performance tuning, and environment-specific configurations.
+> 📖 **[Configuration Documentation](docs/configuration.md)**: Complete configuration guide including environment variables, AI provider setup, security best practices, performance tuning, and environment-specific configurations.
 
 ### Quick Configuration
 
@@ -311,7 +311,7 @@ SERVER_PORT=8000                     # Default: 8000
 LOG_LEVEL=INFO                       # Options: DEBUG, INFO, WARNING, ERROR
 ```
 
-For complete configuration options, security considerations, and environment-specific setups, see the [detailed configuration documentation](doco/configuration.md).
+For complete configuration options, security considerations, and environment-specific setups, see the [detailed configuration documentation](docs/configuration.md).
 
 ## 🧪 Development
 
@@ -343,17 +343,17 @@ mypy app/
 5. **New Services**: Create new services in `services/` directory with proper logging
 6. **New Stores**: Add store configurations in `config/store_config.py`
 7. **API Versioning**: For breaking changes, create new API version in `app/api/v2.py`
-8. **Storage Components**: Add new storage managers in `storage/` directory with async operations (see [Storage System Documentation](doco/storage-system.md))
+8. **Storage Components**: Add new storage managers in `storage/` directory with async operations (see [Storage System Documentation](docs/storage-system.md))
 9. **Serialization Formats**: Extend `BlobManager` with new serialization formats as needed
-10. **Configuration**: Add new settings to `pydantic_config.py` with proper validation (see [Configuration Documentation](doco/configuration.md))
+10. **Configuration**: Add new settings to `pydantic_config.py` with proper validation (see [Configuration Documentation](docs/configuration.md))
 
 ### Development Guidelines
 
 See the comprehensive documentation for detailed development guidelines:
 
-- **[Storage System Documentation](doco/storage-system.md)**: Async/await patterns, type safety with Pydantic models, format selection guidelines, performance best practices and testing approaches
-- **[Configuration Documentation](doco/configuration.md)**: Environment variables, security best practices, performance tuning, and environment-specific configurations
-- **[Troubleshooting Guide](doco/troubleshooting.md)**: Common issues, debugging techniques, performance optimization, and advanced troubleshooting methods
+- **[Storage System Documentation](docs/storage-system.md)**: Async/await patterns, type safety with Pydantic models, format selection guidelines, performance best practices and testing approaches
+- **[Configuration Documentation](docs/configuration.md)**: Environment variables, security best practices, performance tuning, and environment-specific configurations
+- **[Troubleshooting Guide](docs/troubleshooting.md)**: Common issues, debugging techniques, performance optimization, and advanced troubleshooting methods
 
 ## 📊 Current Implementation
 
@@ -460,7 +460,7 @@ MIT License - see LICENSE file for details.
 
 Having issues with the application? We've got you covered with comprehensive troubleshooting solutions.
 
-> 🔧 **[Troubleshooting Guide](doco/troubleshooting.md)**: Complete troubleshooting documentation covering common issues, performance problems, debugging steps, and advanced troubleshooting techniques.
+> 🔧 **[Troubleshooting Guide](docs/troubleshooting.md)**: Complete troubleshooting documentation covering common issues, performance problems, debugging steps, and advanced troubleshooting techniques.
 
 ### Quick Fixes
 
@@ -491,7 +491,7 @@ pip install -r requirements.txt --force-reinstall
 3. **Review Logs**: Check application logs for detailed error messages
 4. **Validate Configuration**: Ensure all required environment variables are set
 
-For detailed solutions, debugging steps, and advanced troubleshooting, see the [complete troubleshooting guide](doco/troubleshooting.md).
+For detailed solutions, debugging steps, and advanced troubleshooting, see the [complete troubleshooting guide](docs/troubleshooting.md).
 
 ## 🔮 Roadmap
 

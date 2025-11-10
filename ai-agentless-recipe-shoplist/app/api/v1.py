@@ -16,6 +16,7 @@ from app.config.store_config import StoreConfig
 from app.ia_provider.provider_factory import AIProvider
 from app.models import (
     APIResponse,
+    ChatCompletionRequest,
     Ingredient,
     Product,
     QuantityUnit,
@@ -23,7 +24,6 @@ from app.models import (
     SearchStoresRequest,
     SearchStoresResponse,
     Store,
-    ChatCompletionRequest
 )
 
 # Import services
@@ -99,6 +99,9 @@ async def search_stores(request: SearchStoresRequest) -> SearchStoresResponse:
         # Use AI to optimize product matching
         ai_service = get_ai_service()
 
+        # Import parallel utilities
+        from app.utils.parallel_utils import AsyncMap
+
         async def search_ingredient(ingredient: Ingredient):
             """Search for a single ingredient."""
             logger.info(f"[API] Searching stores for ingredient: {ingredient.name}")
@@ -108,19 +111,19 @@ async def search_stores(request: SearchStoresRequest) -> SearchStoresResponse:
 
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug((f"[API] AI search for ingredient '{ingredient.name}' - output:", response))
-
-            # Be polite to avoid rate limits
-            await asyncio.sleep(0.5)
             
             return response
 
-        # Process ingredients concurrently using asyncio.gather
+        # Process ingredients concurrently using parallel utilities
         product_results = []
         ia_stats = []
         
-        # Use asyncio.gather for concurrent async operations
-        responses = await asyncio.gather(
-            *[search_ingredient(ingredient) for ingredient in ingredients],
+        # Use AsyncMap for concurrent async operations with rate limiting
+        responses = await AsyncMap.map(
+            search_ingredient,
+            ingredients,
+            max_concurrency=3,  # Limit concurrency to be polite to APIs
+            delay=0.5,          # 0.5 second delay between requests
             return_exceptions=True
         )
 

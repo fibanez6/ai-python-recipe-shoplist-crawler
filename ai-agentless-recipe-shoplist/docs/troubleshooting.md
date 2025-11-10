@@ -363,7 +363,7 @@ env | grep -E "(OPENAI|AI_PROVIDER|LOG_LEVEL)"
 ## Getting Community Support
 
 1. **GitHub Issues**: Report bugs or request features on the project repository
-2. **Documentation**: Check the comprehensive documentation in the `doco/` folder
+2. **Documentation**: Check the comprehensive documentation in the `docs/` folder
 3. **Configuration Guide**: Review the [Configuration Documentation](configuration.md)
 4. **Storage Guide**: Check the [Storage System Documentation](storage-system.md)
 
