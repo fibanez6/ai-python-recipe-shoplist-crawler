@@ -92,16 +92,18 @@ STORE_CONFIGS: dict[str, StoreConfig] = {
         },
         search_api_result_jsonrules={
             "data": {
-                "fields": ["name", "brandName", "quantityUnit", "sellingSize"],
-                "price": {
-                    "fields": ["amount", "amountRelevantDisplay", "comparisonDisplay"],
-                },
+                "fields": [
+                    "name", 
+                    "brandName", 
+                    "quantityUnit", 
+                    "sellingSize"
+                ],
+                "price": ["amount", "amountRelevantDisplay", "comparisonDisplay"],
                 "categories[*].name": True,
-                # extract only first image URL
                 "assets": {
                     "limit": 1,
                     "fields": ["url"],
-                },
+                }
             }
         },
         request_rate_limit_delay=2.0  # More conservative for ALDI

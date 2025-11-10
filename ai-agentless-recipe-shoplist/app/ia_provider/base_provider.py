@@ -110,8 +110,8 @@ class BaseAIProvider(ABC):
 
                 return ChatCompletionResult(
                     success=False if message.refusal else True,
-                    content=message.parsed if message.parsed else message.content,
-                    refusal=message.refusal if message.refusal else None,
+                    content=message.parsed if hasattr(message, "parsed") else message.content,
+                    refusal=message.refusal if hasattr(message, "refusal") else None,
                     metadata=metadata
                 )
             except Exception as e:

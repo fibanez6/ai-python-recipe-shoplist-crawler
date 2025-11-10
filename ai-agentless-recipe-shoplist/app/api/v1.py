@@ -11,7 +11,9 @@ from fastapi import APIRouter, Form, HTTPException
 from pydantic import BaseModel
 
 from app.config.logging_config import get_logger
+from app.config.pydantic_config import AI_SERVICE_SETTINGS
 from app.config.store_config import StoreConfig
+from app.ia_provider.provider_factory import AIProvider
 from app.models import (
     APIResponse,
     Ingredient,
@@ -21,6 +23,7 @@ from app.models import (
     SearchStoresRequest,
     SearchStoresResponse,
     Store,
+    ChatCompletionRequest
 )
 
 # Import services
@@ -225,7 +228,6 @@ async def clear_content_files():
         timestamp=datetime.now().isoformat()
     )
 
-
 @api_v1_router.get("/demo")
 async def demo_recipe():
     """Demo endpoint with a sample recipe."""
@@ -261,5 +263,27 @@ async def demo_recipe():
             "message": "Demo recipe loaded. Use /api/v1/optimize-shopping to continue.",
             "next_step": f"/api/v1/optimize-shopping (POST with recipe_url={sample_url})"
         },
+        timestamp=datetime.now().isoformat()
+    )
+
+
+@api_v1_router.post("/chat")
+
+async def chat(request: ChatCompletionRequest):
+    """Chat endpoint (placeholder)."""
+
+    agent = AIProvider.create_provider(AI_SERVICE_SETTINGS.provider)
+
+    messages = [{"role": "user", "content": request.prompt}]
+    if request.system_message:
+        messages.insert(0, {"role": "system", "content": request.system_message})
+
+    chat_params = {"messages": messages}
+
+    response = await agent.complete_chat(chat_params)
+    
+    return APIResponse(
+        success=True,
+        data=response,
         timestamp=datetime.now().isoformat()
     )

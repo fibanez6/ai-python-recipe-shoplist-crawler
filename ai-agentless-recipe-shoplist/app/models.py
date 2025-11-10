@@ -69,7 +69,6 @@ class Ingredient(BaseModel):
         alternatives_str = f" Alternatives: {', '.join(self.alternatives)}." if self.alternatives else ""
         return f"{name_str}{qty_str}{unit_str}{brand_str}{category_str}{alternatives_str}".strip()
     
-
 class Recipe(BaseModel):
     """Represents a parsed recipe."""
     title: str = Field(..., description="Recipe title")
@@ -222,3 +221,13 @@ class SearchStoresResponse(BaseModel):
     products: list[Product] = Field(default_factory=list, description="Products found")
     ia_stats: Optional[list[dict]] = Field(default_factory=list, description="Intelligent Assistant stats")
     timestamp: str = Field(..., description="Response timestamp")
+
+
+class ChatCompletionRequest(BaseModel):
+    """Request for AI chat completion calls."""
+    system_message: Optional[str] = Field(None, description="System message for context", examples={"You are a funny sage assistant."})
+    prompt: str = Field(..., description="The prompt to send to the AI service", examples={"if the sky is glue and apples are red, what colour is 'el caballo blanco de Franco'?"})
+    # model: Optional[str] = Field(None, description="AI model to use")
+    # temperature: Optional[float] = Field(0.7, description="Sampling temperature")
+    # max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
+    # response_format: Optional[str] = Field(None, description="Expected response format")
