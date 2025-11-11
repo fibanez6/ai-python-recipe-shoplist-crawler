@@ -1,157 +1,139 @@
-import sqlite3
-from pathlib import Path
-from typing import Any, Optional
+import hashlib
+import logging
+import os
+import sys
+import time
+from typing import Optional
+import pickle
 
-import sqlite_utils
-from pydantic import BaseModel
+from unqlite import UnQLite
 
-DB_PATH = Path(__file__).parent / "shoplist.db"
+from app.config.pydantic_config import DB_MANAGER_SETTINGS
+from app.utils.str_helpers import object_to_str
 
-class DatabaseQuery(BaseModel):
-    query: str
-    params: Optional[list[Any]] = None
+from ..config.logging_config import get_logger, log_function_call
 
-class SearchRequest(BaseModel):
-    table: str
-    search_term: str
-    limit: int = 10
+logger = get_logger(__name__)
+
+#  Original / source content
+SOURCE_ALIAS="source"
+PROCESSED_ALIAS = "processed"
 
 class DBManager:
-    def __init__(self, db_path=DB_PATH):
-        self.db = sqlite_utils.Database(db_path)
+    def __init__(self, db_path: str = DB_MANAGER_SETTINGS.path):
+        self.name = "DBManager"
+        self.db = UnQLite(db_path)
+        self.enabled = DB_MANAGER_SETTINGS.enabled
 
-    # def create_table(self, table_name, columns):
-    #     """
-    #     Create a table if it doesn't exist.
-    #     columns: dict of column_name: type (e.g. {"name": str, "quantity": int})
-    #     """
-    #     self.db[table_name].create(columns, pk=None, not_null=None, defaults=None, if_not_exists=True)
+        # Create directory if it doesn't exist
+        db_dir = os.path.dirname(db_path)
+        os.makedirs(db_dir, exist_ok=True)
 
-    # def insert(self, table_name, record):
-    #     """
-    #     Insert a record (dict) into the table.
-    #     """
-    #     self.db[table_name].insert(record)
+        if self.enabled:
+            logger.info(f"[{self.name}] Using database at: {db_path}")
+        else:
+            logger.warning(f"[{self.name}] Database is disabled")
 
-    # def query(self, table_name, where=None):
-    #     """
-    #     Query records from a table. Optionally filter with a where dict.
-    #     """
-    #     if where:
-    #         return list(self.db[table_name].rows_where(where))
-    #     return list(self.db[table_name].rows)
+    def _get_hash(self, key: str, alias: str) -> str:
+        """Generate a hash for the key and alias to use as key."""
+        return hashlib.md5(f"{alias}_{key}".encode()).hexdigest()
 
-    # def update(self, table_name, pk, updates):
-    #     """
-    #     Update a record by primary key.
-    #     """
-    #     self.db[table_name].update(pk, updates)
+    def save(self, key: str, obj: any, alias: str = None, format: str = "json", **kwargs) -> None:
+        """Save an object in the database under the given key."""
 
-    # def delete(self, table_name, pk):
-    #     """
-    #     Delete a record by primary key.
-    #     """
-    #     self.db[table_name].delete(pk)
+        if not self.enabled:
+            return None
 
-    async def execute_query(request: DatabaseQuery):
-        """Execute a custom SQL query."""
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
-            
-            if request.params:
-                cursor.execute(request.query, request.params)
-            else:
-                cursor.execute(request.query)
-            
-            if request.query.strip().upper().startswith('SELECT'):
-                results = cursor.fetchall()
-                columns = [description[0] for description in cursor.description]
-                data = [dict(zip(columns, row)) for row in results]
-            else:
-                conn.commit()
-                data = {"affected_rows": cursor.rowcount}
-            
-            conn.close()
-            return {"success": True, "data": data}
-            
-        except sqlite3.Error as e:
-            raise e
+        try: 
+            obj_str = object_to_str(obj)
+            obj_size = sys.getsizeof(obj_str)
 
-    async def search_data(request: SearchRequest):
-        """Search for data in the database."""
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
+            log_function_call("DBManager.save", {
+                    "cache_key": key,
+                    "alias": alias,
+                    "format": format,
+                    "data_size": f"{obj_size} bytes ({obj_size/1024:.2f} KB)",
+                    "data_preview": obj_str[:20] + ("..." if len(obj_str) > 20 else "")
+                })
             
-            if request.table == "fetched_data":
-                query = """
-                    SELECT id, url, substr(content, 1, 200) as content_preview, metadata, timestamp
-                    FROM fetched_data 
-                    WHERE url LIKE ? OR content LIKE ?
-                    ORDER BY timestamp DESC
-                    LIMIT ?
-                """
-                search_pattern = f"%{request.search_term}%"
-                cursor.execute(query, (search_pattern, search_pattern, request.limit))
-                
-            elif request.table == "scraped_data":
-                query = """
-                    SELECT id, url, title, substr(content, 1, 200) as content_preview, extracted_data, timestamp
-                    FROM scraped_data 
-                    WHERE url LIKE ? OR title LIKE ? OR content LIKE ?
-                    ORDER BY timestamp DESC
-                    LIMIT ?
-                """
-                search_pattern = f"%{request.search_term}%"
-                cursor.execute(query, (search_pattern, search_pattern, search_pattern, request.limit))
-            else:
-                raise Exception("Invalid table name")
+            load_from = kwargs.get('data_from', None)
+            if load_from == "local_db":
+                logger.debug(f"[{self.name}] Skipping save since data loaded from local db")
+                return None
             
-            results = cursor.fetchall()
-            columns = [description[0] for description in cursor.description]
-            data = [dict(zip(columns, row)) for row in results]
-            
-            conn.close()
-            return {"success": True, "results": data, "count": len(data)}
-            
-        except sqlite3.Error as e:
-            raise e
+            hash_key = self._get_hash(key, alias or SOURCE_ALIAS)
+            db_entry = {
+                    "hash_key": hash_key,
+                    "alias": alias,
+                    "timestamp": time.time(),
+                    "data_size": f"{obj_size} bytes ({obj_size/1024:.2f} KB)",
+                    "data_format": format,
+                    "data": obj
+                }
+
+            self.db[hash_key] = pickle.dumps(db_entry)
+
+            self.db.commit()
+            logger.debug(f"[{self.name}] Saved obj to db for {hash_key} and alias '{alias}'")
+        except Exception as e:
+            logger.error(f"[{self.name}] Error saving to database: {e}")
+            return None
+
+    def load(self, key: str, alias: str = None) -> Optional[dict]:
+        """Retrieve an object from the database by key."""
+
+        if not self.enabled:
+            return None
         
-    async def get_database_stats():
-        """Get database statistics."""
         try:
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
-            
-            # Count records in each table
-            cursor.execute("SELECT COUNT(*) FROM fetched_data")
-            fetched_count = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT COUNT(*) FROM scraped_data")
-            scraped_count = cursor.fetchone()[0]
-            
-            # Get recent activity
-            cursor.execute("""
-                SELECT url, timestamp FROM fetched_data 
-                ORDER BY timestamp DESC LIMIT 5
-            """)
-            recent_fetches = cursor.fetchall()
-            
-            cursor.execute("""
-                SELECT url, title, timestamp FROM scraped_data 
-                ORDER BY timestamp DESC LIMIT 5
-            """)
-            recent_scrapes = cursor.fetchall()
-            
-            conn.close()
-            
-            return {
-                "fetched_data_count": fetched_count,
-                "scraped_data_count": scraped_count,
-                "recent_fetches": [{"url": r[0], "timestamp": r[1]} for r in recent_fetches],
-                "recent_scrapes": [{"url": r[0], "title": r[1], "timestamp": r[2]} for r in recent_scrapes]
-            }
-            
-        except sqlite3.Error as e:
-            raise e
+            hash_key = self._get_hash(key, alias or SOURCE_ALIAS)
+
+            if self.exists(hash_key) is False:
+                logger.debug(f"[{self.name}] DB miss for key: {hash_key} (alias='{alias}')")
+                return None
+
+            obj_bytes = self.db[hash_key]
+            obj_dict = pickle.loads(obj_bytes)
+            obj_dict["data_from"] = "local_db"
+
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"[{self.name}] Loaded obj from db for {hash_key} and alias '{alias}': {obj_dict}")
+
+            logger.info(f"[{self.name}] DB hit for key: {hash_key} (alias='{alias}')")
+            return obj_dict
+        except KeyError as e:
+            logger.error(f"[{self.name}] Error loading from cache: {e}")
+            return None
+        
+    def delete(self, key: str) -> bool:
+        """Delete an object from the database by key."""
+        if key in self.db:
+            del self.db[key]
+            return True
+        return False
+
+    def exists(self, key: str) -> bool:
+        """Check if an object exists in the database by key."""
+        return key in self.db
+    
+    def all_keys(self) -> list[str]:
+        """Get all keys in the specified collection."""
+        return list(self.db.keys())
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Called when exiting the 'with' block.
+        Ensures the database is properly closed.
+        """
+        if self.db:
+            self.db.close()
+    
+# Global cache instance
+_db_instance = None
+
+def get_db_manager() -> DBManager:
+    """Get or create the global cache manager instance."""
+    global _db_instance
+    if _db_instance is None:
+        _db_instance = DBManager()
+    return _db_instance

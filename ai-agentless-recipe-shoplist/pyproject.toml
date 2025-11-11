@@ -51,6 +51,7 @@ dependencies = [
     "PyGithub>=1.59.0",
     "jmespath>=1.0.1",
     "sqlite-utils>=3.37.0",
+    "unqlite>=0.9.9",
 ]
 
 [project.optional-dependencies]
