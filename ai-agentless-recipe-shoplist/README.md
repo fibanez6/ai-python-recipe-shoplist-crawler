@@ -444,19 +444,6 @@ mypy app/
 - **🔄 Compatible** with existing pip/PyPI ecosystem
 - **📦 Modern Python tooling** designed for Python 3.8+ projects
 
-### Adding New Features
-
-1. **New API Endpoints**: Add to `app/api/v1.py` for current API or create `app/api/v2.py` for new API version
-2. **New Recipe Sites**: Extend web fetching and parsing in `web_data_service.py` and `html_content_extractor.py`
-3. **New AI Providers**: Implement `BaseAIProvider` in `ia_provider/` directory
-4. **New Configuration**: Add settings to `pydantic_config.py` with proper validation
-5. **New Services**: Create new services in `services/` directory with proper logging
-6. **New Stores**: Add store configurations in `config/store_config.py`
-7. **API Versioning**: For breaking changes, create new API version in `app/api/v2.py`
-8. **Storage Components**: Add new storage managers in `storage/` directory with async operations (see [Storage System Documentation](docs/storage-system.md))
-9. **Serialization Formats**: Extend `BlobManager` with new serialization formats as needed
-10. **Configuration**: Add new settings to `pydantic_config.py` with proper validation (see [Configuration Documentation](docs/configuration.md))
-
 ### Development Guidelines
 
 See the comprehensive documentation for detailed development guidelines:
