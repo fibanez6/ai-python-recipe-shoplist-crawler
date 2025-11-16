@@ -572,37 +572,6 @@ Having issues with the application? We've got you covered with comprehensive tro
 
 > 🔧 **[Troubleshooting Guide](docs/troubleshooting.md)**: Complete troubleshooting documentation covering common issues, performance problems, debugging steps, and advanced troubleshooting techniques.
 
-### Quick Fixes
-
-**Application won't start - Missing pydantic_settings module:**
-```bash
-pip install --upgrade pip
-pip install pydantic-settings>=2.0.0
-```
-
-**Or reinstall all dependencies:**
-```bash
-pip install -r requirements.txt --force-reinstall
-```
-
-### Most Common Issues
-
-- **Missing Dependencies**: Module import errors and installation issues
-- **AI Service Problems**: API key validation and connectivity issues  
-- **Rate Limiting**: GitHub Models and other provider rate limit handling
-- **Storage System**: Async operations, serialization, and performance issues
-- **Configuration**: Environment variables and settings validation
-- **Network Issues**: Connectivity problems and proxy configurations
-
-### Quick Diagnostics
-
-1. **Check API Documentation**: http://localhost:8000/api/v1/docs (when running)
-2. **Test Demo Mode**: `curl -X GET "http://localhost:8000/api/v1/demo"`
-3. **Review Logs**: Check application logs for detailed error messages
-4. **Validate Configuration**: Ensure all required environment variables are set
-
-For detailed solutions, debugging steps, and advanced troubleshooting, see the [complete troubleshooting guide](docs/troubleshooting.md).
-
 ## 🔮 Roadmap
 
 - [ ] Real grocery store API integration and web scraping
@@ -618,50 +587,6 @@ For detailed solutions, debugging steps, and advanced troubleshooting, see the [
 - [ ] Bulk purchasing recommendations
 - [ ] Store location and proximity optimization
 
-## 🆕 Recent Updates
-
-### v2.4 - Modern Package Management & Product Links
-- **UV Package Manager**: Migrated to `uv` for 10-100x faster dependency management
-- **Clickable Product Links**: Added direct links to grocery store products in the web interface  
-- **Demo Functionality**: Interactive demo with real ALDI gazpacho recipe data
-- **Modern Build System**: Updated to `hatchling` build backend for better Python 3.11+ support
-- **Dependency Optimization**: Streamlined dependencies and removed version upper bounds for better compatibility
-- **Updated Documentation**: Comprehensive README updates with uv integration guides
-- **Backward Compatibility**: Maintains support for traditional pip installations
-
-### v2.3 - Advanced Storage System & Performance Enhancements
-- **Async Storage Architecture**: Fully async blob storage system using `aiofiles` and `asyncio.to_thread()`
-- **Multi-Format Support**: JSON, Pickle, and Joblib serialization with automatic format detection
-- **BlobManager**: Advanced blob storage with metadata tracking and type-safe operations
-- **CacheManager**: High-performance memory caching with TTL and size management
-- **StorageManager**: Unified storage interface combining memory and disk operations
-- **Pydantic Integration**: Seamless serialization/deserialization of Pydantic models
-- **Performance Optimized**: Non-blocking I/O operations for better scalability
-- **Storage Configuration**: Configurable storage paths, cache sizes, and TTL settings
-
-### v2.2 - Modular Architecture & API Versioning
-- **Modular API Structure**: Separated API endpoints into versioned modules (`app/api/v1.py`)
-- **API Versioning**: Implemented proper API versioning with `/api/v1/` endpoints
-- **Backward Compatibility**: Legacy `/api/` endpoints automatically redirect to `/api/v1/`
-- **Clean Architecture**: Main application (`main.py`) now focused on setup and routing
-- **Better Code Organization**: API logic separated from application configuration
-- **Improved Maintainability**: Easier to add future API versions (v2, v3, etc.)
-- **Updated Documentation**: API docs now available at `/api/v1/docs` and `/api/v1/redoc`
-
-### v2.1 - Enhanced Grocery Store Integration
-- **Multi-Store Support**: Added support for Coles, Woolworths, ALDI, and IGA with configurable search patterns
-- **Improved Product Matching**: Enhanced AI-powered product matching across multiple stores
-- **Store Configuration**: Flexible store configuration system with HTML selectors and search patterns
-- **Web Data Service**: New service layer for web content fetching and processing
-- **Better Error Handling**: Improved error handling for store searches and product matching
-
-### v2.0 - Modern Configuration & Type Safety
-- **Pydantic Settings**: Migrated from manual environment variable handling to type-safe Pydantic configuration
-- **Enhanced Validation**: All configuration values are now validated with clear error messages
-- **Organized Structure**: Configuration grouped into logical sections (AI providers, web fetcher, logging, etc.)
-- **Better Documentation**: Each setting includes descriptions and sensible defaults
-- **Improved Error Handling**: Robust retry logic with exponential backoff for all AI providers
-- **Code Cleanup**: Removed outdated test files and consolidated configuration management
 
 ---
 
